@@ -1,113 +1,504 @@
-body{
-    margin:0;
-    padding:20px;
+/* =========================================================================
+   Arabic Numbers Learning App — style.css
+   Layout: full-screen flashcard + fixed collapsible right-side panel.
+   Responsive strategy: CSS Grid + clamp() + dynamic viewport units,
+   with dedicated landscape / short-screen rules (not just a shrunken desktop).
+   ========================================================================= */
 
-    font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
+/* -------------------------------------------------------------------------
+   THEME TOKENS
+   ------------------------------------------------------------------------- */
+:root {
+  --bg: #0d1117;
+  --bg-soft: #161b22;
+  --panel-bg: rgba(22, 27, 34, 0.92);
+  --border: rgba(255, 255, 255, 0.12);
 
-    background:#f8fafc;
+  /* Each of the three number forms gets its own colour for instant contrast */
+  --c-western: #f2f5f8;   /* bright white  — Western numeral */
+  --c-indic: #4dd4b0;     /* teal          — Arabic-Indic numeral */
+  --c-words: #ffb861;     /* warm amber    — Arabic words */
+
+  --text-dim: rgba(255, 255, 255, 0.55);
+  --accent: #4dd4b0;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 
-.container{
-    max-width:1100px;
-    margin:auto;
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --bg-soft: #ffffff;
+  --panel-bg: rgba(255, 255, 255, 0.94);
+  --border: rgba(0, 0, 0, 0.12);
+
+  --c-western: #10151c;
+  --c-indic: #0d7f66;
+  --c-words: #b35b06;
+
+  --text-dim: rgba(0, 0, 0, 0.55);
+  --accent: #0d7f66;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
 }
 
-h1{
-    text-align:center;
-    margin-bottom:20px;
+/* -------------------------------------------------------------------------
+   BASE
+   ------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;              /* full-screen flashcard, no page scrolling */
 }
 
-.grid{
-    display:grid;
-
-    grid-template-columns:
-    repeat(auto-fit,minmax(80px,1fr));
-
-    gap:12px;
+body {
+  background: var(--bg);
+  color: var(--c-western);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .35s ease, color .35s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.number-btn{
-
-    height:70px;
-
-    border:none;
-    border-radius:14px;
-
-    background:white;
-
-    font-size:20px;
-    font-weight:600;
-
-    cursor:pointer;
-
-    box-shadow:
-    0 2px 8px rgba(0,0,0,.08);
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
 }
 
-.number-btn:hover{
-    background:#ecfdf5;
+/* -------------------------------------------------------------------------
+   START OVERLAY
+   ------------------------------------------------------------------------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 35%, var(--bg-soft), var(--bg) 70%);
+  transition: opacity .45s ease, visibility .45s ease;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-.detail{
-
-    margin-top:20px;
-
-    background:white;
-
-    border-radius:20px;
-
-    padding:25px;
-
-    text-align:center;
-
-    box-shadow:
-    0 2px 8px rgba(0,0,0,.08);
+.overlay.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-.arabic-number{
-    font-size:64px;
-    font-weight:bold;
+.overlay__inner { text-align: center; padding: 1.5rem; max-width: 40rem; }
+
+.overlay__arabic {
+  color: var(--c-indic);
+  font-size: clamp(2.2rem, 9vw, 4.5rem);
+  margin: 0 0 .4rem;
+  letter-spacing: .12em;
 }
 
-.arabic-text{
-    font-size:42px;
-    margin-top:10px;
+.overlay__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 6vw, 3rem);
+  font-weight: 300;
+  letter-spacing: .04em;
 }
 
-.pronunciation{
-    margin-top:10px;
-    color:#666;
-    font-size:20px;
+.overlay__subtitle {
+  margin: .5rem 0 2rem;
+  color: var(--text-dim);
+  font-size: clamp(.9rem, 3.4vw, 1.15rem);
 }
 
-button{
+.overlay__btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #06120e;
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  font-weight: 600;
+  padding: 1rem 2.6rem;
+  min-height: 56px;                     /* comfortable touch target */
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  transition: transform .18s ease, filter .18s ease;
+}
+.overlay__btn:hover { filter: brightness(1.08); }
+.overlay__btn:active { transform: scale(.97); }
 
-    margin-top:15px;
+.overlay__hint {
+  margin-top: 2rem;
+  color: var(--text-dim);
+  font-size: .8rem;
+}
+/* Keyboard hints are meaningless on touch-only devices */
+@media (hover: none) { .overlay__hint { display: none; } }
 
-    border:none;
-
-    border-radius:12px;
-
-    background:#10b981;
-
-    color:white;
-
-    padding:12px 20px;
-
-    font-size:16px;
+/* -------------------------------------------------------------------------
+   STAGE + FLASHCARD
+   The card is a grid of three rows; each row scales with viewport size.
+   ------------------------------------------------------------------------- */
+.stage {
+  position: relative;
+  height: 100dvh;                       /* dynamic vh: correct on mobile */
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  /* Right padding keeps content clear of the control panel handle */
+  padding: 1rem clamp(3rem, 8vw, 5.5rem) 1rem clamp(1rem, 4vw, 3rem);
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
 }
 
-@media(max-width:700px){
+.card {
+  /* Reset the button element used for tap-to-repeat */
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  width: 100%;
+  height: 100%;
+  padding: 0;
 
-    .arabic-number{
-        font-size:48px;
-    }
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(.2rem, 1.5vh, 1.2rem);
+  text-align: center;
+}
 
-    .arabic-text{
-        font-size:30px;
-    }
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 1.5rem;
+}
 
+/* 1. Western numeral — largest, neutral colour, very heavy */
+.card__western {
+  color: var(--c-western);
+  font-size: clamp(5rem, 26vh, 20rem);
+  font-weight: 200;
+  line-height: .95;
+  letter-spacing: -.02em;
+}
+
+/* 2. Arabic-Indic numeral — teal, medium weight */
+.card__indic {
+  color: var(--c-indic);
+  font-size: clamp(3.5rem, 17vh, 13rem);
+  font-weight: 500;
+  line-height: 1.1;
+  direction: rtl;
+}
+
+/* 3. Arabic words — amber, Arabic-friendly serif stack */
+.card__words {
+  color: var(--c-words);
+  font-family: "Noto Naskh Arabic", "Traditional Arabic", "Amiri",
+               "Geeza Pro", "Segoe UI", "Arial", serif;
+  font-size: clamp(2.2rem, 13vh, 9rem);
+  font-weight: 600;
+  line-height: 1.45;                    /* Arabic needs generous line height */
+  direction: rtl;
+  unicode-bidi: isolate;
+  white-space: nowrap;                  /* never break "خمسة وعشرون" awkwardly */
+  max-width: 100%;
+}
+
+/* Subtle entrance animation when the number changes */
+.card.is-entering .card__western,
+.card.is-entering .card__indic,
+.card.is-entering .card__words {
+  animation: fadeUp .4s ease both;
+}
+.card.is-entering .card__indic { animation-delay: .05s; }
+.card.is-entering .card__words { animation-delay: .1s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Respect users who prefer no motion */
+@media (prefers-reduced-motion: reduce) {
+  .card.is-entering .card__western,
+  .card.is-entering .card__indic,
+  .card.is-entering .card__words { animation: none; }
+  * { transition-duration: .01ms !important; }
+}
+
+/* -------------------------------------------------------------------------
+   PROGRESS
+   ------------------------------------------------------------------------- */
+.progress {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .35s ease;
+}
+
+.progress__label {
+  position: absolute;
+  bottom: calc(.9rem + env(safe-area-inset-bottom));
+  left: clamp(1rem, 4vw, 3rem);
+  color: var(--text-dim);
+  font-size: clamp(.7rem, 2.4vw, .85rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+}
+
+/* -------------------------------------------------------------------------
+   COLLAPSIBLE RIGHT PANEL
+   ------------------------------------------------------------------------- */
+.panel {
+  position: fixed;
+  top: 50%;
+  right: max(.6rem, env(safe-area-inset-right));
+  transform: translateY(-50%);
+  z-index: 30;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .55rem;
+
+  width: clamp(62px, 9vw, 78px);
+  padding: .7rem .4rem;
+
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+
+  transition: opacity .4s ease, transform .35s ease, visibility .35s ease;
+}
+
+/* Idle: fade out but stay usable on hover/tap */
+.panel.is-dimmed { opacity: .12; }
+.panel.is-dimmed:hover,
+.panel.is-dimmed:focus-within { opacity: 1; }
+
+/* Collapsed: slide off-screen to the right */
+.panel.is-collapsed {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%) translateX(120%);
+}
+
+.panel__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .35rem;
+  width: 100%;
+  padding-bottom: .55rem;
+  border-bottom: 1px solid var(--border);
+}
+.panel__group:last-of-type { border-bottom: none; padding-bottom: 0; }
+
+.panel__label {
+  color: var(--text-dim);
+  font-size: .62rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.panel__note {
+  margin: .2rem 0 0;
+  color: var(--text-dim);
+  font-size: .5rem;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* --- Buttons: min 44px touch targets --- */
+.btn {
+  appearance: none;
+  cursor: pointer;
+  width: 46px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--c-western);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: .95rem;
+  line-height: 1;
+  transition: background-color .18s ease, transform .12s ease;
+}
+.btn:hover { background: var(--border); }
+.btn:active { transform: scale(.93); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.btn--main {
+  width: 54px;
+  height: 54px;
+  background: var(--accent);
+  color: #06120e;
+  border: none;
+  font-size: 1.1rem;
+}
+.btn--main:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* --- Vertical volume slider --- */
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 90px;                    /* becomes height once rotated */
+  height: 26px;
+  transform: rotate(-90deg);
+  margin: 26px 0 22px;            /* space reserved for the rotation */
+  background: transparent;
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 999px; background: var(--border);
+}
+.slider::-moz-range-track {
+  height: 4px; border-radius: 999px; background: var(--border);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px; margin-top: -6px;
+  border-radius: 50%; background: var(--accent); border: none;
+}
+.slider::-moz-range-thumb {
+  width: 16px; height: 16px; border: none;
+  border-radius: 50%; background: var(--accent);
+}
+.slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+/* --- Speed select --- */
+.select {
+  width: 100%;
+  min-height: 34px;
+  background: transparent;
+  color: var(--c-western);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: .68rem;
+  padding: .25rem;
+  text-align: center;
+  cursor: pointer;
+}
+.select option { background: var(--bg-soft); color: var(--c-western); }
+
+/* --- Loop toggle --- */
+.toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25rem;
+  cursor: pointer;
+  min-height: 40px;
+  justify-content: center;
+}
+.toggle input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.toggle__text {
+  color: var(--text-dim);
+  font-size: .6rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+/* -------------------------------------------------------------------------
+   TRIANGULAR HANDLE
+   Always visible, semi-transparent, opens/closes the panel.
+   ------------------------------------------------------------------------- */
+.panel-handle {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 31;
+
+  width: 30px;
+  height: 64px;                   /* tall enough to tap reliably */
+  display: grid;
+  place-items: center;
+
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  cursor: pointer;
+  opacity: .35;
+  transition: opacity .3s ease;
+}
+.panel-handle:hover,
+.panel-handle:focus-visible { opacity: 1; }
+.panel-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The small triangle itself */
+.panel-handle__tri {
+  width: 0; height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-right: 9px solid var(--c-western);   /* points left = "open" */
+  transition: transform .3s ease;
+}
+/* When the panel is hidden, flip the triangle to point the other way */
+.panel-handle[aria-expanded="false"] .panel-handle__tri { transform: rotate(180deg); }
+
+/* Keep the handle clear of the panel when the panel is open */
+.panel-handle[aria-expanded="true"] {
+  right: calc(clamp(62px, 9vw, 78px) + max(.6rem, env(safe-area-inset-right)) + 2px);
+}
+
+/* -------------------------------------------------------------------------
+   RESPONSIVE: LANDSCAPE PHONES / SHORT SCREENS
+   Height is scarce — the layout rebalances instead of simply shrinking.
+   ------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  .card {
+    /* Put the Western numeral beside the Arabic forms to use the width */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 0 clamp(1rem, 4vw, 3rem);
+  }
+  .card__western {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    font-size: clamp(4rem, 42vh, 12rem);
+  }
+  .card__indic { grid-column: 2; grid-row: 1; font-size: clamp(2.2rem, 22vh, 6rem); }
+  .card__words { grid-column: 2; grid-row: 2; font-size: clamp(1.6rem, 19vh, 5rem); }
+
+  .stage { padding-block: .5rem; }
+  .progress__label { bottom: .4rem; }
+}
+
+/* -------------------------------------------------------------------------
+   RESPONSIVE: SMALL PHONES (portrait)
+   ------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .panel { width: 64px; gap: .45rem; }
+  .btn { width: 44px; height: 44px; }
+  .btn--main { width: 50px; height: 50px; }
+  .slider { width: 78px; margin: 22px 0 18px; }
+  .card__words { font-size: clamp(1.9rem, 11vh, 5rem); }
+}
+
+/* -------------------------------------------------------------------------
+   RESPONSIVE: LARGE MONITORS — cap sizes so text stays comfortable
+   ------------------------------------------------------------------------- */
+@media (min-width: 1600px) {
+  .card__western { font-size: min(24vh, 22rem); }
+  .card__indic   { font-size: min(16vh, 14rem); }
+  .card__words   { font-size: min(13vh, 10rem); }
 }
