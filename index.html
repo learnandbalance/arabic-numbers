@@ -1,39 +1,129 @@
 <!DOCTYPE html>
-<html lang="tr">
-
+<html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arapça Sayılar</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="description" content="Learn Arabic numbers from 1 to 100 by seeing and hearing them." />
 
-    style.css
+  <!-- Enables a full-screen app feel when added to the phone Home Screen -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Arabic 1–100" />
+
+  <title>Arabic Numbers 1–100</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
-<div class="container">
+  <!-- =====================================================================
+       START OVERLAY
+       Browsers block autoplay audio until the user interacts once.
+       This single tap unlocks speech synthesis for the whole session.
+       ===================================================================== -->
+  <div class="overlay" id="start-overlay">
+    <div class="overlay__inner">
+      <p class="overlay__arabic" lang="ar" dir="rtl">١ – ١٠٠</p>
+      <h1 class="overlay__title">Arabic Numbers</h1>
+      <p class="overlay__subtitle">See it. Hear it. Remember it.</p>
+      <button class="overlay__btn" id="start-btn" type="button">Start Learning</button>
+      <p class="overlay__hint">
+        Space = play / pause &nbsp;·&nbsp; ← → = move &nbsp;·&nbsp; R = repeat &nbsp;·&nbsp; M = mute
+      </p>
+    </div>
+  </div>
 
-    <h1>Arapça Sayılar</h1>
+  <!-- =====================================================================
+       MAIN FLASHCARD
+       ===================================================================== -->
+  <main class="stage">
+    <button class="card" id="card" type="button" aria-label="Repeat pronunciation">
+      <!-- Western numeral -->
+      <span class="card__western" id="western">1</span>
 
-    <div id="numberGrid" class="grid"></div>
+      <!-- Arabic-Indic numeral -->
+      <span class="card__indic" id="indic" lang="ar" dir="rtl">١</span>
 
-    <div class="detail">
+      <!-- Arabic number in words -->
+      <span class="card__words" id="words" lang="ar" dir="rtl">واحد</span>
+    </button>
 
-        <div id="arabicNumber" class="arabic-number"></div>
+    <!-- Progress strip -->
+    <div class="progress" aria-hidden="true">
+      <div class="progress__bar" id="progress-bar"></div>
+    </div>
+    <span class="progress__label" id="progress-label">1 / 100</span>
+  </main>
 
-        <div id="arabicText" class="arabic-text"></div>
+  <!-- Screen-reader announcements -->
+  <div class="visually-hidden" id="live-region" aria-live="polite" role="status"></div>
 
-        <div id="pronunciation" class="pronunciation"></div>
+  <!-- =====================================================================
+       RIGHT-SIDE COLLAPSIBLE CONTROL PANEL
+       ===================================================================== -->
+  <button class="panel-handle" id="panel-handle" type="button"
+          aria-controls="panel" aria-expanded="true" aria-label="Hide controls">
+    <span class="panel-handle__tri" aria-hidden="true"></span>
+  </button>
 
-        <button onclick="speakCurrent()">
-            🔊 Dinle
-        </button>
+  <aside class="panel" id="panel" aria-label="Playback controls">
 
+    <div class="panel__group">
+      <button class="btn btn--main" id="btn-playpause" type="button" aria-label="Play" aria-pressed="false">
+        <span id="icon-playpause" aria-hidden="true">►</span>
+      </button>
     </div>
 
-</div>
+    <div class="panel__group">
+      <button class="btn" id="btn-prev" type="button" aria-label="Previous number" title="Previous">
+        <span aria-hidden="true">◄◄</span>
+      </button>
+      <button class="btn" id="btn-next" type="button" aria-label="Next number" title="Next / Skip">
+        <span aria-hidden="true">►►</span>
+      </button>
+      <button class="btn" id="btn-repeat" type="button" aria-label="Repeat current number" title="Repeat">
+        <span aria-hidden="true">↻</span>
+      </button>
+      <button class="btn" id="btn-restart" type="button" aria-label="Restart from one" title="Restart from 1">
+        <span aria-hidden="true">|◄</span>
+      </button>
+    </div>
 
-script.jsscript>
+    <div class="panel__group">
+      <button class="btn" id="btn-mute" type="button" aria-label="Mute" aria-pressed="false">
+        <span id="icon-mute" aria-hidden="true">🔊</span>
+      </button>
 
+      <label class="panel__label" for="volume">Vol</label>
+      <input class="slider" id="volume" type="range" min="0" max="100" step="1" value="100"
+             aria-label="Volume" />
+    </div>
+
+    <div class="panel__group">
+      <label class="panel__label" for="speed">Speed</label>
+      <select class="select" id="speed" aria-label="Playback speed">
+        <option value="slow">Slow</option>
+        <option value="normal" selected>Normal</option>
+        <option value="fast">Fast</option>
+      </select>
+    </div>
+
+    <div class="panel__group">
+      <label class="toggle">
+        <input type="checkbox" id="loop-toggle" checked />
+        <span class="toggle__text">Loop</span>
+      </label>
+    </div>
+
+    <div class="panel__group">
+      <button class="btn" id="btn-theme" type="button" aria-label="Toggle light or dark mode" title="Toggle theme">☀</button>
+    </div>
+
+    <p class="panel__note" id="voice-note">Loading voice…</p>
+  </aside>
+
+  <script src="script.js"></script>
 </body>
 </html>
