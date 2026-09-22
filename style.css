@@ -1,504 +1,419 @@
 /* =========================================================================
-   Arabic Numbers Learning App — style.css
-   Layout: full-screen flashcard + fixed collapsible right-side panel.
-   Responsive strategy: CSS Grid + clamp() + dynamic viewport units,
-   with dedicated landscape / short-screen rules (not just a shrunken desktop).
+   Arabic Numbers Learning App — style.css (v2)
+
+   PALETTE — "Deep Aurora"
+   A cool near-black base with three analogous-plus-accent hues that sit
+   far apart in both hue and brightness, so the three number forms are
+   never confused with each other:
+      Western numeral  -> soft porcelain white  (neutral, recessive)
+      Arabic-Indic     -> aurora mint  #5EEAD4  (cool)
+      Arabic words     -> soft amber   #FBBF6E  (warm, the focal point)
+   Cool + warm on a neutral dark ground = high separation, low eye strain.
+
+   TYPOGRAPHY
+      Outfit          -> Western numerals (geometric, very clean at huge sizes)
+      Readex Pro      -> Arabic-Indic digits (designed for Arabic + Latin)
+      Noto Naskh Arabic -> Arabic words (classical Naskh, excellent diacritics)
    ========================================================================= */
 
-/* -------------------------------------------------------------------------
-   THEME TOKENS
-   ------------------------------------------------------------------------- */
 :root {
-  --bg: #0d1117;
-  --bg-soft: #161b22;
-  --panel-bg: rgba(22, 27, 34, 0.92);
-  --border: rgba(255, 255, 255, 0.12);
+  --bg: #0a0e1a;
+  --bg-2: #121829;
+  --panel-bg: rgba(18, 24, 41, 0.88);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.22);
 
-  /* Each of the three number forms gets its own colour for instant contrast */
-  --c-western: #f2f5f8;   /* bright white  — Western numeral */
-  --c-indic: #4dd4b0;     /* teal          — Arabic-Indic numeral */
-  --c-words: #ffb861;     /* warm amber    — Arabic words */
+  --c-western: #EEF2FB;   /* porcelain */
+  --c-indic:   #5EEAD4;   /* aurora mint */
+  --c-words:   #FBBF6E;   /* soft amber */
 
-  --text-dim: rgba(255, 255, 255, 0.55);
-  --accent: #4dd4b0;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --text-dim: rgba(238, 242, 251, 0.50);
+  --accent: #5EEAD4;
+  --accent-ink: #052e28;
+  --danger: #FB7185;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
 
 :root[data-theme="light"] {
-  --bg: #f6f7f9;
-  --bg-soft: #ffffff;
-  --panel-bg: rgba(255, 255, 255, 0.94);
-  --border: rgba(0, 0, 0, 0.12);
+  --bg: #F7F8FC;
+  --bg-2: #FFFFFF;
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --border: rgba(16, 24, 40, 0.10);
+  --border-strong: rgba(16, 24, 40, 0.24);
 
-  --c-western: #10151c;
-  --c-indic: #0d7f66;
-  --c-words: #b35b06;
+  --c-western: #141A2A;   /* ink */
+  --c-indic:   #0E7C6B;   /* deep teal */
+  --c-words:   #B4590B;   /* burnt amber */
 
-  --text-dim: rgba(0, 0, 0, 0.55);
-  --accent: #0d7f66;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+  --text-dim: rgba(20, 26, 42, 0.55);
+  --accent: #0E7C6B;
+  --accent-ink: #FFFFFF;
+  --danger: #D1425C;
+  --shadow: 0 20px 50px rgba(16, 24, 40, 0.12);
 }
 
-/* -------------------------------------------------------------------------
-   BASE
-   ------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ BASE */
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;              /* full-screen flashcard, no page scrolling */
-}
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, var(--bg-2), transparent 60%),
+    var(--bg);
   color: var(--c-western);
-  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Outfit", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   transition: background-color .35s ease, color .35s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 .visually-hidden {
-  position: absolute;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden; clip: rect(0 0 0 0);
-  white-space: nowrap; border: 0;
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* -------------------------------------------------------------------------
-   START OVERLAY
-   ------------------------------------------------------------------------- */
+/* --------------------------------------------------------- START OVERLAY */
 .overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 50% 35%, var(--bg-soft), var(--bg) 70%);
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 35%, var(--bg-2), var(--bg) 72%);
   transition: opacity .45s ease, visibility .45s ease;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-
-.overlay.is-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
+.overlay.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
 .overlay__inner { text-align: center; padding: 1.5rem; max-width: 40rem; }
 
 .overlay__arabic {
+  font-family: "Readex Pro", "Noto Naskh Arabic", serif;
   color: var(--c-indic);
-  font-size: clamp(2.2rem, 9vw, 4.5rem);
-  margin: 0 0 .4rem;
-  letter-spacing: .12em;
+  font-size: clamp(1.8rem, 8vw, 3.8rem);
+  margin: 0 0 .5rem; letter-spacing: .1em;
 }
-
 .overlay__title {
-  margin: 0;
-  font-size: clamp(1.6rem, 6vw, 3rem);
-  font-weight: 300;
-  letter-spacing: .04em;
+  margin: 0; font-weight: 200;
+  font-size: clamp(1.7rem, 6.5vw, 3.2rem); letter-spacing: .02em;
 }
-
 .overlay__subtitle {
-  margin: .5rem 0 2rem;
-  color: var(--text-dim);
-  font-size: clamp(.9rem, 3.4vw, 1.15rem);
+  margin: .6rem 0 2.2rem; color: var(--text-dim);
+  font-size: clamp(.9rem, 3.4vw, 1.1rem);
 }
-
 .overlay__btn {
-  appearance: none;
-  border: none;
-  cursor: pointer;
-  background: var(--accent);
-  color: #06120e;
-  font-size: clamp(1rem, 4vw, 1.3rem);
-  font-weight: 600;
-  padding: 1rem 2.6rem;
-  min-height: 56px;                     /* comfortable touch target */
-  border-radius: 999px;
-  box-shadow: var(--shadow);
+  appearance: none; border: none; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink);
+  font-family: inherit; font-size: clamp(1rem, 4vw, 1.25rem); font-weight: 600;
+  padding: 1rem 2.8rem; min-height: 56px; border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(94, 234, 212, .22);
   transition: transform .18s ease, filter .18s ease;
 }
 .overlay__btn:hover { filter: brightness(1.08); }
 .overlay__btn:active { transform: scale(.97); }
-
-.overlay__hint {
-  margin-top: 2rem;
-  color: var(--text-dim);
-  font-size: .8rem;
-}
-/* Keyboard hints are meaningless on touch-only devices */
+.overlay__hint { margin-top: 2rem; color: var(--text-dim); font-size: .78rem; }
 @media (hover: none) { .overlay__hint { display: none; } }
 
-/* -------------------------------------------------------------------------
-   STAGE + FLASHCARD
-   The card is a grid of three rows; each row scales with viewport size.
-   ------------------------------------------------------------------------- */
+/* ------------------------------------------------------ STAGE + FLASHCARD */
 .stage {
   position: relative;
-  height: 100dvh;                       /* dynamic vh: correct on mobile */
+  height: 100dvh;
   display: grid;
-  grid-template-rows: 1fr auto;
-  align-items: center;
-  /* Right padding keeps content clear of the control panel handle */
-  padding: 1rem clamp(3rem, 8vw, 5.5rem) 1rem clamp(1rem, 4vw, 3rem);
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  grid-template-rows: 1fr auto auto;   /* card | strip | status */
+  gap: .6rem;
+  padding: .8rem clamp(3.2rem, 8vw, 6rem) .5rem clamp(1rem, 4vw, 3rem);
+  padding-bottom: calc(.5rem + env(safe-area-inset-bottom));
 }
 
 .card {
-  /* Reset the button element used for tap-to-repeat */
-  appearance: none;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-
-  display: grid;
-  grid-template-rows: auto auto auto;
-  align-content: center;
-  justify-items: center;
-  gap: clamp(.2rem, 1.5vh, 1.2rem);
+  appearance: none; background: none; border: none; color: inherit;
+  cursor: pointer; font: inherit; width: 100%; height: 100%; padding: 0;
+  display: grid; grid-template-rows: auto auto auto;
+  align-content: center; justify-items: center;
+  gap: clamp(.1rem, 1.2vh, 1rem);
   text-align: center;
+  min-height: 0;                        /* allow the grid row to shrink */
 }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 8px; border-radius: 1.5rem; }
 
-.card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 6px;
-  border-radius: 1.5rem;
-}
-
-/* 1. Western numeral — largest, neutral colour, very heavy */
+/* 1 — Western numeral: ultra-light, tracking tightened */
 .card__western {
+  font-family: "Outfit", system-ui, sans-serif;
   color: var(--c-western);
-  font-size: clamp(5rem, 26vh, 20rem);
-  font-weight: 200;
-  line-height: .95;
-  letter-spacing: -.02em;
+  font-size: clamp(4.5rem, 24vh, 19rem);
+  font-weight: 200; line-height: .92; letter-spacing: -.035em;
 }
 
-/* 2. Arabic-Indic numeral — teal, medium weight */
+/* 2 — Arabic-Indic numeral: mint, wider tracking for legibility */
 .card__indic {
+  font-family: "Readex Pro", "Noto Naskh Arabic", "Segoe UI", sans-serif;
   color: var(--c-indic);
-  font-size: clamp(3.5rem, 17vh, 13rem);
-  font-weight: 500;
-  line-height: 1.1;
+  font-size: clamp(3rem, 15vh, 11rem);
+  font-weight: 400; line-height: 1.15; letter-spacing: .06em;
   direction: rtl;
 }
 
-/* 3. Arabic words — amber, Arabic-friendly serif stack */
+/* 3 — Arabic words: warm amber Naskh, the focal element */
 .card__words {
-  color: var(--c-words);
   font-family: "Noto Naskh Arabic", "Traditional Arabic", "Amiri",
-               "Geeza Pro", "Segoe UI", "Arial", serif;
-  font-size: clamp(2.2rem, 13vh, 9rem);
-  font-weight: 600;
-  line-height: 1.45;                    /* Arabic needs generous line height */
-  direction: rtl;
-  unicode-bidi: isolate;
-  white-space: nowrap;                  /* never break "خمسة وعشرون" awkwardly */
-  max-width: 100%;
+               "Geeza Pro", "Segoe UI", serif;
+  color: var(--c-words);
+  font-size: clamp(2rem, 12vh, 8rem);
+  font-weight: 700; line-height: 1.5;
+  direction: rtl; unicode-bidi: isolate;
+  white-space: nowrap; max-width: 100%;
 }
+/* Long forms like "تسعة آلاف وتسعمئة وتسعة وتسعون" need to shrink */
+.card__words.is-long { font-size: clamp(1.1rem, 6.5vh, 4rem); }
 
-/* Subtle entrance animation when the number changes */
 .card.is-entering .card__western,
 .card.is-entering .card__indic,
-.card.is-entering .card__words {
-  animation: fadeUp .4s ease both;
-}
+.card.is-entering .card__words { animation: fadeUp .4s ease both; }
 .card.is-entering .card__indic { animation-delay: .05s; }
 .card.is-entering .card__words { animation-delay: .1s; }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
   to   { opacity: 1; transform: none; }
 }
 
-/* Respect users who prefer no motion */
 @media (prefers-reduced-motion: reduce) {
-  .card.is-entering .card__western,
-  .card.is-entering .card__indic,
-  .card.is-entering .card__words { animation: none; }
+  .card.is-entering * { animation: none !important; }
   * { transition-duration: .01ms !important; }
 }
 
-/* -------------------------------------------------------------------------
-   PROGRESS
-   ------------------------------------------------------------------------- */
-.progress {
-  width: 100%;
-  height: 3px;
-  background: var(--border);
-  border-radius: 999px;
-  overflow: hidden;
+/* ------------------------------------------------------- NUMBER STRIP */
+.strip {
+  display: flex;
+  gap: .4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;              /* Firefox */
+  padding: .15rem 0;
+  scroll-padding-inline: 50%;
+}
+.strip::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: 0 0 auto;
+  appearance: none; cursor: pointer;
+  font-family: "Outfit", system-ui, sans-serif;
+  min-width: 44px; height: 38px; padding: 0 .55rem;
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: .85rem; font-variant-numeric: tabular-nums;
+  transition: color .2s ease, border-color .2s ease, background-color .2s ease, transform .15s ease;
+}
+.chip:hover { color: var(--c-western); border-color: var(--border-strong); }
+.chip:active { transform: scale(.92); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
+/* ------------------------------------------------------------- STATUSBAR */
+.statusbar { display: flex; align-items: center; gap: .7rem; }
+
+.progress {
+  flex: 1; height: 3px;
+  background: var(--border); border-radius: 999px; overflow: hidden;
+}
 .progress__bar {
-  height: 100%;
-  width: 0;
-  background: var(--accent);
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--c-indic), var(--c-words));
   transition: width .35s ease;
 }
-
 .progress__label {
-  position: absolute;
-  bottom: calc(.9rem + env(safe-area-inset-bottom));
-  left: clamp(1rem, 4vw, 3rem);
   color: var(--text-dim);
-  font-size: clamp(.7rem, 2.4vw, .85rem);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .08em;
+  font-size: clamp(.68rem, 2.2vw, .8rem);
+  font-variant-numeric: tabular-nums; letter-spacing: .06em;
 }
 
-/* -------------------------------------------------------------------------
-   COLLAPSIBLE RIGHT PANEL
-   ------------------------------------------------------------------------- */
+/* --------------------------------------------------------------- PANEL */
 .panel {
-  position: fixed;
-  top: 50%;
-  right: max(.6rem, env(safe-area-inset-right));
-  transform: translateY(-50%);
-  z-index: 30;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .55rem;
-
-  width: clamp(62px, 9vw, 78px);
-  padding: .7rem .4rem;
-
+  position: fixed; top: 50%; right: max(.6rem, env(safe-area-inset-right));
+  transform: translateY(-50%); z-index: 30;
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  width: clamp(72px, 9.5vw, 88px);
+  max-height: 94dvh; overflow-y: auto; scrollbar-width: none;
+  padding: .7rem .45rem;
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
+  backdrop-filter: blur(14px);
   transition: opacity .4s ease, transform .35s ease, visibility .35s ease;
 }
+.panel::-webkit-scrollbar { display: none; }
 
-/* Idle: fade out but stay usable on hover/tap */
-.panel.is-dimmed { opacity: .12; }
-.panel.is-dimmed:hover,
-.panel.is-dimmed:focus-within { opacity: 1; }
-
-/* Collapsed: slide off-screen to the right */
-.panel.is-collapsed {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-50%) translateX(120%);
-}
+.panel.is-dimmed { opacity: .14; }
+.panel.is-dimmed:hover, .panel.is-dimmed:focus-within { opacity: 1; }
+.panel.is-collapsed { opacity: 0; visibility: hidden; transform: translateY(-50%) translateX(125%); }
 
 .panel__group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .35rem;
-  width: 100%;
-  padding-bottom: .55rem;
-  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center;
+  gap: .3rem; width: 100%;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--border);
 }
 .panel__group:last-of-type { border-bottom: none; padding-bottom: 0; }
 
 .panel__label {
-  color: var(--text-dim);
-  font-size: .62rem;
-  text-transform: uppercase;
-  letter-spacing: .1em;
+  color: var(--text-dim); font-size: .58rem;
+  text-transform: uppercase; letter-spacing: .12em;
 }
-
 .panel__note {
-  margin: .2rem 0 0;
-  color: var(--text-dim);
-  font-size: .5rem;
-  text-align: center;
-  line-height: 1.3;
-  word-break: break-word;
+  margin: .1rem 0 0; color: var(--text-dim);
+  font-size: .48rem; text-align: center; word-break: break-word;
 }
 
-/* --- Buttons: min 44px touch targets --- */
-.btn {
-  appearance: none;
-  cursor: pointer;
-  width: 46px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: var(--c-western);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: .95rem;
-  line-height: 1;
-  transition: background-color .18s ease, transform .12s ease;
+/* --- Manual entry --- */
+.jump {
+  width: 100%; height: 42px;
+  background: var(--bg); color: var(--c-words);
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 1.05rem; font-weight: 600;
+  text-align: center; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-strong); border-radius: 12px;
 }
-.btn:hover { background: var(--border); }
+.jump::placeholder { color: var(--text-dim); font-weight: 400; }
+.jump:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.jump.is-invalid { border-color: var(--danger); animation: shake .35s ease; }
+
+@keyframes shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* --- Range boxes --- */
+.range-box {
+  width: 100%; height: 34px;
+  background: transparent; color: var(--c-western);
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: .78rem; text-align: center;
+  border: 1px solid var(--border); border-radius: 9px;
+}
+.range-box:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Hide the native number spinners — they are too small to tap */
+.range-box::-webkit-outer-spin-button,
+.range-box::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.range-box { -moz-appearance: textfield; appearance: textfield; }
+
+/* --- Buttons --- */
+.btn {
+  appearance: none; cursor: pointer;
+  width: 46px; height: 44px;
+  display: grid; place-items: center;
+  background: transparent; color: var(--c-western);
+  font-family: inherit; font-size: .9rem; line-height: 1;
+  border: 1px solid var(--border); border-radius: 12px;
+  transition: background-color .18s ease, border-color .18s ease, transform .12s ease;
+}
+.btn:hover { background: var(--border); border-color: var(--border-strong); }
 .btn:active { transform: scale(.93); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.btn--wide { width: 100%; height: 38px; font-size: .75rem; letter-spacing: .06em; }
+
 .btn--main {
-  width: 54px;
-  height: 54px;
-  background: var(--accent);
-  color: #06120e;
-  border: none;
-  font-size: 1.1rem;
+  width: 54px; height: 54px; border: none;
+  background: var(--accent); color: var(--accent-ink); font-size: 1.05rem;
+  box-shadow: 0 8px 22px rgba(94, 234, 212, .20);
 }
-.btn--main:hover { filter: brightness(1.08); background: var(--accent); }
+.btn--main:hover { background: var(--accent); filter: brightness(1.08); }
 
 /* --- Vertical volume slider --- */
 .slider {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 90px;                    /* becomes height once rotated */
-  height: 26px;
-  transform: rotate(-90deg);
-  margin: 26px 0 22px;            /* space reserved for the rotation */
-  background: transparent;
-  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  width: 88px; height: 26px;
+  transform: rotate(-90deg); margin: 25px 0 21px;
+  background: transparent; cursor: pointer;
 }
-.slider::-webkit-slider-runnable-track {
-  height: 4px; border-radius: 999px; background: var(--border);
-}
-.slider::-moz-range-track {
-  height: 4px; border-radius: 999px; background: var(--border);
-}
+.slider::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--border-strong); }
+.slider::-moz-range-track { height: 4px; border-radius: 999px; background: var(--border-strong); }
 .slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 16px; height: 16px; margin-top: -6px;
-  border-radius: 50%; background: var(--accent); border: none;
+  -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px;
+  border: none; border-radius: 50%; background: var(--accent);
 }
-.slider::-moz-range-thumb {
-  width: 16px; height: 16px; border: none;
-  border-radius: 50%; background: var(--accent);
-}
+.slider::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: var(--accent); }
 .slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 
-/* --- Speed select --- */
+/* --- Select + toggle --- */
 .select {
-  width: 100%;
-  min-height: 34px;
-  background: transparent;
-  color: var(--c-western);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: .68rem;
-  padding: .25rem;
-  text-align: center;
-  cursor: pointer;
+  width: 100%; min-height: 34px;
+  background: transparent; color: var(--c-western);
+  font-family: inherit; font-size: .68rem; text-align: center;
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: .22rem; cursor: pointer;
 }
-.select option { background: var(--bg-soft); color: var(--c-western); }
+.select option { background: var(--bg-2); color: var(--c-western); }
 
-/* --- Loop toggle --- */
 .toggle {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-  cursor: pointer;
-  min-height: 40px;
-  justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .2rem; min-height: 40px; cursor: pointer;
 }
 .toggle input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
-.toggle__text {
-  color: var(--text-dim);
-  font-size: .6rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
+.toggle__text { color: var(--text-dim); font-size: .56rem; text-transform: uppercase; letter-spacing: .1em; }
 
-/* -------------------------------------------------------------------------
-   TRIANGULAR HANDLE
-   Always visible, semi-transparent, opens/closes the panel.
-   ------------------------------------------------------------------------- */
+/* ------------------------------------------------------ TRIANGLE HANDLE */
 .panel-handle {
-  position: fixed;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  z-index: 31;
-
-  width: 30px;
-  height: 64px;                   /* tall enough to tap reliably */
-  display: grid;
-  place-items: center;
-
+  position: fixed; top: 50%; right: 0;
+  transform: translateY(-50%); z-index: 31;
+  width: 30px; height: 66px;
+  display: grid; place-items: center;
   background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-right: none;
+  border: 1px solid var(--border); border-right: none;
   border-radius: 12px 0 0 12px;
-  cursor: pointer;
-  opacity: .35;
-  transition: opacity .3s ease;
+  cursor: pointer; opacity: .35;
+  backdrop-filter: blur(10px);
+  transition: opacity .3s ease, right .35s ease;
 }
-.panel-handle:hover,
-.panel-handle:focus-visible { opacity: 1; }
+.panel-handle:hover, .panel-handle:focus-visible { opacity: 1; }
 .panel-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* The small triangle itself */
 .panel-handle__tri {
   width: 0; height: 0;
   border-top: 7px solid transparent;
   border-bottom: 7px solid transparent;
-  border-right: 9px solid var(--c-western);   /* points left = "open" */
+  border-right: 9px solid var(--c-western);
   transition: transform .3s ease;
 }
-/* When the panel is hidden, flip the triangle to point the other way */
 .panel-handle[aria-expanded="false"] .panel-handle__tri { transform: rotate(180deg); }
-
-/* Keep the handle clear of the panel when the panel is open */
 .panel-handle[aria-expanded="true"] {
-  right: calc(clamp(62px, 9vw, 78px) + max(.6rem, env(safe-area-inset-right)) + 2px);
+  right: calc(clamp(72px, 9.5vw, 88px) + max(.6rem, env(safe-area-inset-right)) + 2px);
 }
 
-/* -------------------------------------------------------------------------
-   RESPONSIVE: LANDSCAPE PHONES / SHORT SCREENS
-   Height is scarce — the layout rebalances instead of simply shrinking.
-   ------------------------------------------------------------------------- */
-@media (orientation: landscape) and (max-height: 520px) {
+/* ------------------------------- RESPONSIVE: LANDSCAPE / SHORT SCREENS */
+@media (orientation: landscape) and (max-height: 540px) {
   .card {
-    /* Put the Western numeral beside the Arabic forms to use the width */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
     grid-template-rows: auto auto;
-    align-items: center;
-    gap: 0 clamp(1rem, 4vw, 3rem);
+    align-items: center; gap: 0 clamp(1rem, 4vw, 3rem);
   }
-  .card__western {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    font-size: clamp(4rem, 42vh, 12rem);
-  }
-  .card__indic { grid-column: 2; grid-row: 1; font-size: clamp(2.2rem, 22vh, 6rem); }
-  .card__words { grid-column: 2; grid-row: 2; font-size: clamp(1.6rem, 19vh, 5rem); }
+  .card__western { grid-column: 1; grid-row: 1 / span 2; font-size: clamp(3.5rem, 40vh, 11rem); }
+  .card__indic   { grid-column: 2; grid-row: 1; font-size: clamp(2rem, 20vh, 5.5rem); }
+  .card__words   { grid-column: 2; grid-row: 2; font-size: clamp(1.4rem, 17vh, 4.5rem); }
+  .card__words.is-long { font-size: clamp(.95rem, 9vh, 2.2rem); }
 
-  .stage { padding-block: .5rem; }
-  .progress__label { bottom: .4rem; }
+  .stage { padding-block: .4rem; gap: .35rem; }
+  .chip { height: 32px; min-width: 40px; font-size: .75rem; }
 }
 
-/* -------------------------------------------------------------------------
-   RESPONSIVE: SMALL PHONES (portrait)
-   ------------------------------------------------------------------------- */
+/* ------------------------------------- RESPONSIVE: SMALL PHONES (portrait) */
 @media (max-width: 480px) {
-  .panel { width: 64px; gap: .45rem; }
+  .panel { width: 74px; gap: .4rem; }
   .btn { width: 44px; height: 44px; }
   .btn--main { width: 50px; height: 50px; }
-  .slider { width: 78px; margin: 22px 0 18px; }
-  .card__words { font-size: clamp(1.9rem, 11vh, 5rem); }
+  .slider { width: 76px; margin: 21px 0 17px; }
+  .card__words { font-size: clamp(1.7rem, 10vh, 4.5rem); }
+  .card__words.is-long { font-size: clamp(1rem, 5.5vh, 2.4rem); }
 }
 
-/* -------------------------------------------------------------------------
-   RESPONSIVE: LARGE MONITORS — cap sizes so text stays comfortable
-   ------------------------------------------------------------------------- */
+/* -------------------------------------------- RESPONSIVE: LARGE MONITORS */
 @media (min-width: 1600px) {
-  .card__western { font-size: min(24vh, 22rem); }
-  .card__indic   { font-size: min(16vh, 14rem); }
-  .card__words   { font-size: min(13vh, 10rem); }
+  .card__western { font-size: min(23vh, 21rem); }
+  .card__indic   { font-size: min(15vh, 12rem); }
+  .card__words   { font-size: min(12vh, 9rem); }
 }
