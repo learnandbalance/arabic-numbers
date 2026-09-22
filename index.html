@@ -3,72 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d1117" />
-  <meta name="description" content="Learn Arabic numbers from 1 to 100 by seeing and hearing them." />
+  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="description" content="Learn Arabic numbers by seeing and hearing them. Supports 0 to 9999." />
 
-  <!-- Enables a full-screen app feel when added to the phone Home Screen -->
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Arabic 1–100" />
+  <meta name="apple-mobile-web-app-title" content="Arabic Numbers" />
 
-  <title>Arabic Numbers 1–100</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Arabic Numbers — 0 to 9999</title>
+
+  <!-- Fonts. If they fail to load, the CSS falls back to system fonts. -->
+  <link rel="preconnect" href="https://rel="preconnect" href="https://fonts.ps://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600&family=Readex+Pro:wght@400;600&family=Noto+Naskh+Arabic:wght@500;700&display=swap"="stylesheet" href="style.css" />
 </head>
 
 <body>
 
-  <!-- =====================================================================
-       START OVERLAY
-       Browsers block autoplay audio until the user interacts once.
-       This single tap unlocks speech synthesis for the whole session.
-       ===================================================================== -->
+  <!-- ===================== START OVERLAY ===================== -->
   <div class="overlay" id="start-overlay">
     <div class="overlay__inner">
-      <p class="overlay__arabic" lang="ar" dir="rtl">١ – ١٠٠</p>
+      <p class="overlay__arabic" lang="ar" dir="rtl">٠ – ٩٩٩٩</p>
       <h1 class="overlay__title">Arabic Numbers</h1>
       <p class="overlay__subtitle">See it. Hear it. Remember it.</p>
       <button class="overlay__btn" id="start-btn" type="button">Start Learning</button>
       <p class="overlay__hint">
-        Space = play / pause &nbsp;·&nbsp; ← → = move &nbsp;·&nbsp; R = repeat &nbsp;·&nbsp; M = mute
+        Space play/pause &nbsp;·&nbsp; ← → move &nbsp;·&nbsp; R repeat &nbsp;·&nbsp; M mute &nbsp;·&nbsp; / search
       </p>
     </div>
   </div>
 
-  <!-- =====================================================================
-       MAIN FLASHCARD
-       ===================================================================== -->
+  <!-- ===================== FLASHCARD ===================== -->
   <main class="stage">
     <button class="card" id="card" type="button" aria-label="Repeat pronunciation">
-      <!-- Western numeral -->
       <span class="card__western" id="western">1</span>
-
-      <!-- Arabic-Indic numeral -->
       <span class="card__indic" id="indic" lang="ar" dir="rtl">١</span>
-
-      <!-- Arabic number in words -->
       <span class="card__words" id="words" lang="ar" dir="rtl">واحد</span>
     </button>
 
-    <!-- Progress strip -->
-    <div class="progress" aria-hidden="true">
-      <div class="progress__bar" id="progress-bar"></div>
+    <!-- Clickable number strip -->
+    <nav class="strip" id="strip" aria-label="Jump to a number"></nav>
+
+    <div class="statusbar">
+      <div class="progress" aria-hidden="true">
+        <div class="progress__bar" id="progress-bar"></div>
+      </div>
+      <span class="progress__label" id="progress-label">1 / 100</span>
     </div>
-    <span class="progress__label" id="progress-label">1 / 100</span>
   </main>
 
-  <!-- Screen-reader announcements -->
   <div class="visually-hidden" id="live-region" aria-live="polite" role="status"></div>
 
-  <!-- =====================================================================
-       RIGHT-SIDE COLLAPSIBLE CONTROL PANEL
-       ===================================================================== -->
+  <!-- ===================== PANEL HANDLE ===================== -->
   <button class="panel-handle" id="panel-handle" type="button"
           aria-controls="panel" aria-expanded="true" aria-label="Hide controls">
     <span class="panel-handle__tri" aria-hidden="true"></span>
   </button>
 
+  <!-- ===================== CONTROL PANEL ===================== -->
   <aside class="panel" id="panel" aria-label="Playback controls">
+
+    <!-- Manual number entry -->
+    <form class="panel__group panel__group--jump" id="jump-form">
+      <label class="panel__label" for="jump-input">Go to</label>
+      <input class="jump" id="jump-input" type="text" inputmode="numeric"
+             pattern="[0-9\u0660-\u0669]*" maxlength="4" placeholder="1987"
+             aria-label="Type a number between 0 and 9999" />
+      <button class="btn btn--wide" type="submit" aria-label="Speak this number">Say</button>
+    </form>
 
     <div class="panel__group">
       <button class="btn btn--main" id="btn-playpause" type="button" aria-label="Play" aria-pressed="false">
@@ -80,25 +81,32 @@
       <button class="btn" id="btn-prev" type="button" aria-label="Previous number" title="Previous">
         <span aria-hidden="true">◄◄</span>
       </button>
-      <button class="btn" id="btn-next" type="button" aria-label="Next number" title="Next / Skip">
+      <button class="btn" id="btn-next" type="button" aria-label="Next number" title="Next">
         <span aria-hidden="true">►►</span>
       </button>
       <button class="btn" id="btn-repeat" type="button" aria-label="Repeat current number" title="Repeat">
         <span aria-hidden="true">↻</span>
       </button>
-      <button class="btn" id="btn-restart" type="button" aria-label="Restart from one" title="Restart from 1">
+      <button class="btn" id="btn-restart" type="button" aria-label="Restart" title="Restart">
         <span aria-hidden="true">|◄</span>
       </button>
+    </div>
+
+    <!-- Auto-play range -->
+    <div class="panel__group">
+      <label class="panel__label" for="range-start">Range</label>
+      <input class="range-box" id="range-start" type="number" min="0" max="9999" value="1"
+             aria-label="Range start" />
+      <input class="range-box" id="range-end" type="number" min="0" max="9999" value="100"
+             aria-label="Range end" />
     </div>
 
     <div class="panel__group">
       <button class="btn" id="btn-mute" type="button" aria-label="Mute" aria-pressed="false">
         <span id="icon-mute" aria-hidden="true">🔊</span>
       </button>
-
       <label class="panel__label" for="volume">Vol</label>
-      <input class="slider" id="volume" type="range" min="0" max="100" step="1" value="100"
-             aria-label="Volume" />
+      <input class="slider" id="volume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" />
     </div>
 
     <div class="panel__group">
@@ -115,13 +123,10 @@
         <input type="checkbox" id="loop-toggle" checked />
         <span class="toggle__text">Loop</span>
       </label>
+      <button class="btn" id="btn-theme" type="button" aria-label="Toggle theme" title="Toggle theme">☀</button>
     </div>
 
-    <div class="panel__group">
-      <button class="btn" id="btn-theme" type="button" aria-label="Toggle light or dark mode" title="Toggle theme">☀</button>
-    </div>
-
-    <p class="panel__note" id="voice-note">Loading voice…</p>
+    <p class="panel__note" id="voice-note">…</p>
   </aside>
 
   <script src="script.js"></script>
