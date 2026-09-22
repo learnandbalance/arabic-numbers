@@ -1,135 +1,95 @@
 /* =========================================================================
-   Arabic Numbers Learning App — v2
-   Adds: manual number entry (0–9999), clickable number strip,
-         extended Arabic grammar for hundreds/thousands (dates, years).
-   Pure vanilla JavaScript. No frameworks, no backend.
-   =========================================================================
-     1.  Arabic number engine (0–9999)
-     2.  State
-     3.  DOM references
-     4.  Rendering
-     5.  Number strip
-     6.  Speech synthesis
-     7.  Playback engine
-     8.  Manual entry
-     9.  Controls / events
-    10.  Panel auto-hide
-    11.  Theme + settings
-    12.  Init
+   Arabic Numbers Learning App — script.js (v4)
+   -------------------------------------------------------------------------
+   v4 fixes:
+     • init() is now fully defensive: every step runs in isolation, so a
+       missing element can NEVER prevent the Start button from working.
+     • Start button is bound FIRST, before anything else can fail.
+     • Manual entry uses no <form> at all.
+     • speak() is deferred one tick after cancel() (Chrome/Safari drop
+       utterances queued in the same tick as a cancel).
    ========================================================================= */
 
 'use strict';
 
 /* =========================================================================
    1. ARABIC NUMBER ENGINE (0–9999)
-   -------------------------------------------------------------------------
-   Everything is generated locally — no API.
-   Modern Standard Arabic, masculine counting form (the form used when
-   reading a number aloud: واحد، اثنان، ثلاثة ...).
-
-   Grammar rules implemented:
-     • 11–19 are irregular                 -> أحد عشر
-     • Compounds are unit-first with "و"   -> 25 = خمسة وعشرون
-     • Hundreds have fused forms           -> 300 = ثلاثمئة
-     • 200 / 2000 use the dual             -> مئتان / ألفان
-     • 3000–10000 use the plural "آلاف"    -> 5000 = خمسة آلاف
    ========================================================================= */
 
-const UNITS = [
-  '',        // 0 handled separately
-  'واحد',    // 1
-  'اثنان',   // 2
-  'ثلاثة',   // 3
-  'أربعة',   // 4
-  'خمسة',    // 5
-  'ستة',     // 6
-  'سبعة',    // 7
-  'ثمانية',  // 8
-  'تسعة',    // 9
-  'عشرة'     // 10
-];
+var UNITS = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة'];
 
-const TEENS = {
-  11: 'أحد عشر',   12: 'اثنا عشر',  13: 'ثلاثة عشر',
-  14: 'أربعة عشر', 15: 'خمسة عشر',  16: 'ستة عشر',
-  17: 'سبعة عشر',  18: 'ثمانية عشر', 19: 'تسعة عشر'
+var TEENS = {
+  11:'أحد عشر', 12:'اثنا عشر', 13:'ثلاثة عشر', 14:'أربعة عشر', 15:'خمسة عشر',
+  16:'ستة عشر', 17:'سبعة عشر', 18:'ثمانية عشر', 19:'تسعة عشر'
 };
 
-const TENS = {
-  20: 'عشرون', 30: 'ثلاثون', 40: 'أربعون', 50: 'خمسون',
-  60: 'ستون',  70: 'سبعون',  80: 'ثمانون', 90: 'تسعون'
+var TENS = {
+  20:'عشرون', 30:'ثلاثون', 40:'أربعون', 50:'خمسون',
+  60:'ستون', 70:'سبعون', 80:'ثمانون', 90:'تسعون'
 };
 
-const HUNDREDS = {
-  1: 'مئة',      2: 'مئتان',    3: 'ثلاثمئة',
-  4: 'أربعمئة',  5: 'خمسمئة',   6: 'ستمئة',
-  7: 'سبعمئة',   8: 'ثمانمئة',  9: 'تسعمئة'
+var HUNDREDS = {
+  1:'مئة', 2:'مئتان', 3:'ثلاثمئة', 4:'أربعمئة', 5:'خمسمئة',
+  6:'ستمئة', 7:'سبعمئة', 8:'ثمانمئة', 9:'تسعمئة'
 };
 
-/** 1–99 */
-function under100(n) {
-  if (n === 0) return '';
-  if (n <= 10) return UNITS[n];
-  if (n < 20) return TEENS[n];
-  const tens = Math.floor(n / 10) * 10;
-  const unit = n % 10;
-  return unit === 0 ? TENS[tens] : UNITS[unit] + ' و' + TENS[tens];
+function under100(n){
+  if(n === 0) return '';
+  if(n <= 10) return UNITS[n];
+  if(n < 20) return TEENS[n];
+  var t = Math.floor(n/10)*10, u = n%10;
+  return u === 0 ? TENS[t] : UNITS[u] + ' و' + TENS[t];
 }
 
-/** 1–999 */
-function under1000(n) {
-  const h = Math.floor(n / 100);
-  const rest = n % 100;
-  const parts = [];
-  if (h) parts.push(HUNDREDS[h]);
-  if (rest) parts.push(under100(rest));
-  return parts.join(' و');
+function under1000(n){
+  var h = Math.floor(n/100), r = n%100, p = [];
+  if(h) p.push(HUNDREDS[h]);
+  if(r) p.push(under100(r));
+  return p.join(' و');
 }
 
-/** The "thousands" portion, e.g. 2 -> ألفان, 5 -> خمسة آلاف */
-function thousandsWord(k) {
-  if (k === 1) return 'ألف';
-  if (k === 2) return 'ألفان';
-  if (k >= 3 && k <= 10) return UNITS[k] + ' آلاف';
+function thousandsWord(k){
+  if(k === 1) return 'ألف';
+  if(k === 2) return 'ألفان';
+  if(k >= 3 && k <= 10) return UNITS[k] + ' آلاف';
   return under1000(k) + ' ألفاً';
 }
 
-/**
- * Main converter. Handles 0–9999, which covers years, birth dates,
- * surgery dates, room numbers, prices, etc.
- */
-function toArabicWords(n) {
-  if (n === 0) return 'صفر';
-  const k = Math.floor(n / 1000);
-  const rest = n % 1000;
-  const parts = [];
-  if (k) parts.push(thousandsWord(k));
-  if (rest) parts.push(under1000(rest));
-  return parts.join(' و');
+function toArabicWords(n){
+  if(n === 0) return 'صفر';
+  var k = Math.floor(n/1000), r = n%1000, p = [];
+  if(k) p.push(thousandsWord(k));
+  if(r) p.push(under1000(r));
+  return p.join(' و');
 }
 
-/** Western digits -> Arabic-Indic digits */
-const ARABIC_INDIC_DIGITS = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-function toArabicIndic(n) {
-  return String(n).split('').map(d => ARABIC_INDIC_DIGITS[Number(d)]).join('');
+var AR_DIGITS = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+
+function toArabicIndic(n){
+  return String(n).split('').map(function(d){ return AR_DIGITS[Number(d)]; }).join('');
 }
 
-/** Build one display record for any number. */
-function makeItem(n) {
-  return { value: n, indic: toArabicIndic(n), words: toArabicWords(n) };
+function makeItem(n){
+  return { value:n, indic:toArabicIndic(n), words:toArabicWords(n) };
+}
+
+/** Accept Western or Arabic-Indic digits, discard everything else. */
+function normaliseDigits(str){
+  return String(str == null ? '' : str)
+    .replace(/[٠-٩]/g, function(d){ return String(AR_DIGITS.indexOf(d)); })
+    .replace(/[^0-9]/g, '');
 }
 
 /* =========================================================================
    2. STATE
    ========================================================================= */
 
-const ABS_MIN = 0;
-const ABS_MAX = 9999;
+var ABS_MIN = 0, ABS_MAX = 9999;
 
-const state = {
+var state = {
   current: 1,
-  rangeStart: 1,       // auto-play sequence start
-  rangeEnd: 100,       // auto-play sequence end
+  rangeStart: 1,
+  rangeEnd: 100,
   playing: false,
   started: false,
   muted: false,
@@ -140,226 +100,336 @@ const state = {
   voice: null
 };
 
-let advanceTimer = null;
-let currentUtterance = null;
+var advanceTimer = null;
+var currentUtterance = null;
 
 /* =========================================================================
-   3. DOM REFERENCES
+   3. DOM
    ========================================================================= */
 
-const el = {
-  startOverlay: document.getElementById('start-overlay'),
-  startBtn: document.getElementById('start-btn'),
+function $(id){ return document.getElementById(id); }
 
-  card: document.getElementById('card'),
-  western: document.getElementById('western'),
-  indic: document.getElementById('indic'),
-  words: document.getElementById('words'),
+var el = {};
 
-  strip: document.getElementById('strip'),
-  progressBar: document.getElementById('progress-bar'),
-  progressLabel: document.getElementById('progress-label'),
+function collectDom(){
+  el.startOverlay = $('start-overlay');
+  el.startBtn     = $('start-btn');
+  el.card         = $('card');
+  el.western      = $('western');
+  el.indic        = $('indic');
+  el.words        = $('words');
+  el.wheel        = $('wheel');
+  el.wheelTrack   = $('wheel-track');
+  el.progressBar  = $('progress-bar');
+  el.progressLabel= $('progress-label');
+  el.panel        = $('panel');
+  el.panelHandle  = $('panel-handle');
+  el.playPauseBtn = $('btn-playpause');
+  el.playPauseIcon= $('icon-playpause');
+  el.prevBtn      = $('btn-prev');
+  el.nextBtn      = $('btn-next');
+  el.repeatBtn    = $('btn-repeat');
+  el.restartBtn   = $('btn-restart');
+  el.muteBtn      = $('btn-mute');
+  el.muteIcon     = $('icon-mute');
+  el.themeBtn     = $('btn-theme');
+  el.jumpInput    = $('jump-input');
+  el.sayBtn       = $('btn-say');
+  el.rangeStart   = $('range-start');
+  el.rangeEnd     = $('range-end');
+  el.volume       = $('volume');
+  el.speed        = $('speed');
+  el.loopToggle   = $('loop-toggle');
+  el.voiceNote    = $('voice-note');
+  el.live         = $('live-region');
+}
 
-  panel: document.getElementById('panel'),
-  panelHandle: document.getElementById('panel-handle'),
+/** Run a step without letting its failure break the rest of startup. */
+function safe(label, fn){
+  try{ fn(); }
+  catch(err){ console.error('[ArabicNumbers] ' + label + ' failed:', err); }
+}
 
-  playPauseBtn: document.getElementById('btn-playpause'),
-  playPauseIcon: document.getElementById('icon-playpause'),
-  prevBtn: document.getElementById('btn-prev'),
-  nextBtn: document.getElementById('btn-next'),
-  repeatBtn: document.getElementById('btn-repeat'),
-  restartBtn: document.getElementById('btn-restart'),
-  muteBtn: document.getElementById('btn-mute'),
-  muteIcon: document.getElementById('icon-mute'),
-  themeBtn: document.getElementById('btn-theme'),
-
-  jumpInput: document.getElementById('jump-input'),
-  jumpForm: document.getElementById('jump-form'),
-
-  rangeStart: document.getElementById('range-start'),
-  rangeEnd: document.getElementById('range-end'),
-
-  volume: document.getElementById('volume'),
-  speed: document.getElementById('speed'),
-  loopToggle: document.getElementById('loop-toggle'),
-  voiceNote: document.getElementById('voice-note'),
-  live: document.getElementById('live-region')
-};
-
-/* =========================================================================
-   4. RENDERING
-   ========================================================================= */
-
-function render() {
-  const item = makeItem(state.current);
-
-  el.western.textContent = item.value;
-  el.indic.textContent = item.indic;
-  el.words.textContent = item.words;
-
-  // Long words (e.g. 9999) need to shrink to stay on one line
-  el.words.classList.toggle('is-long', item.words.length > 22);
-
-  // Replay the entrance animation
-  el.card.classList.remove('is-entering');
-  void el.card.offsetWidth;
-  el.card.classList.add('is-entering');
-
-  // Progress relative to the active range
-  const span = Math.max(1, state.rangeEnd - state.rangeStart);
-  const pct = ((state.current - state.rangeStart) / span) * 100;
-  el.progressBar.style.width = Math.min(100, Math.max(0, pct)) + '%';
-  el.progressLabel.textContent = state.current + ' / ' + state.rangeEnd;
-
-  highlightStrip();
-  el.live.textContent = item.value + ' — ' + item.words;
+/** Attach a listener only if the element exists. */
+function on(node, evt, handler, opts){
+  if(node && node.addEventListener) node.addEventListener(evt, handler, opts);
 }
 
 /* =========================================================================
-   5. NUMBER STRIP
-   -------------------------------------------------------------------------
-   A horizontally scrolling row of numbers along the bottom.
-   Clicking any chip jumps straight to that number.
+   4. ROTATING DRUM WHEEL
    ========================================================================= */
 
-function buildStrip() {
-  el.strip.innerHTML = '';
-  const frag = document.createDocumentFragment();
+var TICK_W = 58;     // spacing between ticks, px
+var WINDOW = 11;     // ticks drawn on each side of centre
+var MAX_ROT = 62;    // rotation at the far edge, degrees
 
-  for (let i = state.rangeStart; i <= state.rangeEnd; i++) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'chip';
-    chip.dataset.n = i;
-    chip.textContent = i;
-    chip.setAttribute('aria-label', 'Go to number ' + i);
-    frag.appendChild(chip);
-  }
-  el.strip.appendChild(frag);
-}
+var tickPool = [];
+var wheelCentre = 1;
 
-function highlightStrip() {
-  const prev = el.strip.querySelector('.chip.is-active');
-  if (prev) prev.classList.remove('is-active');
-
-  const chip = el.strip.querySelector('.chip[data-n="' + state.current + '"]');
-  if (chip) {
-    chip.classList.add('is-active');
-    // Keep the active chip centred without scrolling the page itself
-    chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+function buildWheelPool(){
+  if(!el.wheelTrack) return;
+  el.wheelTrack.innerHTML = '';
+  tickPool.length = 0;
+  for(var i = 0; i < WINDOW*2 + 1; i++){
+    var t = document.createElement('div');
+    t.className = 'tick';
+    t.style.position = 'absolute';
+    t.style.width = (TICK_W - 10) + 'px';
+    t.style.height = '38px';
+    el.wheelTrack.appendChild(t);
+    tickPool.push(t);
   }
 }
 
+function renderWheel(centre){
+  if(!el.wheelTrack || !tickPool.length) return;
+
+  wheelCentre = centre;
+  var base = Math.round(centre);
+  var half = WINDOW;
+
+  for(var i = 0; i < tickPool.length; i++){
+    var node = tickPool[i];
+    var value = base - half + i;
+
+    if(value < state.rangeStart || value > state.rangeEnd){
+      node.style.display = 'none';
+      continue;
+    }
+    node.style.display = 'grid';
+
+    var dx = (value - centre) * TICK_W;
+    var norm = Math.max(-1, Math.min(1, dx / (half * TICK_W)));
+
+    var rotY  = -norm * MAX_ROT;
+    var scale = 1 - Math.abs(norm) * 0.35;
+    var depth = -Math.abs(norm) * 90;
+
+    node.textContent = value;
+    node.style.transform =
+      'translateX(' + (dx - (TICK_W - 10)/2) + 'px)' +
+      ' translateZ(' + depth + 'px)' +
+      ' rotateY(' + rotY + 'deg)' +
+      ' scale(' + scale + ')';
+
+    // Fade + darken with distance, so the centre reads as the lit face
+    node.style.opacity = String(1 - Math.abs(norm) * 0.55);
+    node.style.filter = 'brightness(' + (1 - Math.abs(norm) * 0.5).toFixed(3) + ')';
+
+    if(value === state.current && Math.abs(dx) < 2) node.classList.add('is-active');
+    else node.classList.remove('is-active');
+  }
+
+  if(el.wheel) el.wheel.setAttribute('aria-valuenow', String(state.current));
+}
+
+function bindWheel(){
+  if(!el.wheel) return;
+
+  var dragging = false, startX = 0, startValue = 1;
+  var lastX = 0, lastT = 0, velocity = 0, moved = false;
+
+  on(el.wheel, 'pointerdown', function(e){
+    dragging = true; moved = false;
+    startX = lastX = e.clientX;
+    startValue = state.current;
+    lastT = performance.now();
+    velocity = 0;
+    el.wheel.classList.add('is-dragging');
+    if(el.wheelTrack) el.wheelTrack.classList.remove('is-animating');
+    try{ el.wheel.setPointerCapture(e.pointerId); }catch(_){}
+    pause();
+  });
+
+  on(el.wheel, 'pointermove', function(e){
+    if(!dragging) return;
+    var dx = e.clientX - startX;
+    if(Math.abs(dx) > 3) moved = true;
+
+    var now = performance.now(), dt = now - lastT;
+    if(dt > 0){
+      velocity = (e.clientX - lastX) / dt;
+      lastX = e.clientX; lastT = now;
+    }
+
+    var centre = startValue - dx / TICK_W;
+    centre = Math.max(state.rangeStart, Math.min(state.rangeEnd, centre));
+
+    state.current = Math.round(centre);
+    renderWheel(centre);
+    renderCard();
+  });
+
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    el.wheel.classList.remove('is-dragging');
+
+    var target = wheelCentre;
+    if(Math.abs(velocity) > 0.35) target -= velocity * 9;
+    target = Math.max(state.rangeStart, Math.min(state.rangeEnd, Math.round(target)));
+
+    if(el.wheelTrack) el.wheelTrack.classList.add('is-animating');
+
+    if(moved) goTo(target, { stop:true });
+    else repeat();
+  }
+
+  on(el.wheel, 'pointerup', endDrag);
+  on(el.wheel, 'pointercancel', endDrag);
+
+  on(el.wheel, 'wheel', function(e){
+    e.preventDefault();
+    goTo(state.current + ((e.deltaY > 0 || e.deltaX > 0) ? 1 : -1), { stop:true });
+  }, { passive:false });
+
+  on(el.wheel, 'keydown', function(e){
+    if(e.key === 'ArrowLeft'){ e.preventDefault(); goTo(state.current - 1, { stop:true }); }
+    if(e.key === 'ArrowRight'){ e.preventDefault(); goTo(state.current + 1, { stop:true }); }
+  });
+}
+
 /* =========================================================================
-   6. SPEECH SYNTHESIS
+   5. RENDERING
    ========================================================================= */
 
-const synth = window.speechSynthesis;
-const speechSupported = typeof synth !== 'undefined' && 'SpeechSynthesisUtterance' in window;
+function renderCard(){
+  var item = makeItem(state.current);
 
-/** Preference: ar-QA > ar-SA > other Gulf > any Arabic voice. */
-function pickArabicVoice() {
-  if (!speechSupported) return null;
-  const voices = synth.getVoices();
-  if (!voices || !voices.length) return null;
+  if(el.western) el.western.textContent = item.value;
+  if(el.indic)   el.indic.textContent = item.indic;
+  if(el.words){
+    el.words.textContent = item.words;
+    if(item.words.length > 22) el.words.classList.add('is-long');
+    else el.words.classList.remove('is-long');
+  }
 
-  const arabic = voices.filter(v => (v.lang || '').toLowerCase().startsWith('ar'));
-  if (!arabic.length) return null;
+  var span = Math.max(1, state.rangeEnd - state.rangeStart);
+  var pct = ((state.current - state.rangeStart) / span) * 100;
+  if(el.progressBar) el.progressBar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  if(el.progressLabel) el.progressLabel.textContent = state.current + ' / ' + state.rangeEnd;
+  if(el.live) el.live.textContent = item.value + ' — ' + item.words;
+}
 
-  const preferred = ['ar-qa','ar-sa','ar-ae','ar-kw','ar-bh','ar-eg','ar-jo','ar'];
-  for (const tag of preferred) {
-    const matches = arabic.filter(v =>
-      (v.lang || '').toLowerCase().replace('_', '-').startsWith(tag));
-    if (matches.length) {
-      const enhanced = matches.find(v => /enhanced|premium|neural|natural/i.test(v.name));
-      return enhanced || matches[0];
+function render(){
+  renderCard();
+  if(el.card){
+    el.card.classList.remove('is-entering');
+    void el.card.offsetWidth;
+    el.card.classList.add('is-entering');
+  }
+  if(el.wheelTrack) el.wheelTrack.classList.add('is-animating');
+  renderWheel(state.current);
+}
+
+/* =========================================================================
+   6. SPEECH
+   ========================================================================= */
+
+var synth = window.speechSynthesis;
+var speechSupported = typeof synth !== 'undefined' && 'SpeechSynthesisUtterance' in window;
+
+function pickArabicVoice(){
+  if(!speechSupported) return null;
+  var voices = synth.getVoices();
+  if(!voices || !voices.length) return null;
+
+  var arabic = voices.filter(function(v){
+    return (v.lang || '').toLowerCase().indexOf('ar') === 0;
+  });
+  if(!arabic.length) return null;
+
+  var preferred = ['ar-qa','ar-sa','ar-ae','ar-kw','ar-bh','ar-eg','ar-jo','ar'];
+  for(var i = 0; i < preferred.length; i++){
+    var tag = preferred[i];
+    var m = arabic.filter(function(v){
+      return (v.lang || '').toLowerCase().replace('_','-').indexOf(tag) === 0;
+    });
+    if(m.length){
+      var better = m.filter(function(v){ return /enhanced|premium|neural|natural/i.test(v.name); });
+      return better.length ? better[0] : m[0];
     }
   }
   return arabic[0];
 }
 
-function loadVoices() {
+function loadVoices(){
   state.voice = pickArabicVoice();
-  updateVoiceNote();
-}
-
-function updateVoiceNote() {
-  if (!speechSupported) {
-    el.voiceNote.textContent = 'Speech not supported here.';
-    return;
+  if(el.voiceNote){
+    el.voiceNote.textContent = !speechSupported ? 'No speech support'
+      : (state.voice ? state.voice.lang : 'No Arabic voice');
   }
-  el.voiceNote.textContent = state.voice
-    ? state.voice.lang
-    : 'No Arabic voice';
 }
 
-function stopSpeech() {
-  if (!speechSupported) return;
-  if (currentUtterance) {
+function stopSpeech(){
+  if(!speechSupported) return;
+  if(currentUtterance){
     currentUtterance.onend = null;
     currentUtterance.onerror = null;
     currentUtterance = null;
   }
-  synth.cancel();
+  try{ synth.cancel(); }catch(_){}
 }
 
-function speakCurrent(onDone) {
-  const item = makeItem(state.current);
-  stopSpeech(); // never let utterances overlap
+function speakCurrent(onDone){
+  var item = makeItem(state.current);
+  stopSpeech();
 
-  if (!speechSupported || state.muted || state.volume === 0) {
-    if (onDone) onDone();
+  if(!speechSupported || state.muted || state.volume === 0){
+    if(onDone) onDone();
     return;
   }
 
-  const u = new SpeechSynthesisUtterance(item.words);
+  var u = new SpeechSynthesisUtterance(item.words);
   u.lang = state.voice ? state.voice.lang : 'ar-SA';
-  if (state.voice) u.voice = state.voice;
+  if(state.voice) u.voice = state.voice;
   u.rate = state.rate;
   u.pitch = 1;
   u.volume = state.volume;
 
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
+  var done = false;
+  function finish(){
+    if(done) return;
+    done = true;
     currentUtterance = null;
-    if (onDone) onDone();
-  };
+    if(onDone) onDone();
+  }
   u.onend = finish;
   u.onerror = finish;
 
   currentUtterance = u;
-  synth.speak(u);
 
-  // Safety net for mobile browsers that skip "onend"
-  const fallbackMs = Math.max(2500, item.words.length * 220);
-  setTimeout(() => { if (!finished && !synth.speaking) finish(); }, fallbackMs);
+  /* Chrome and Safari silently DROP an utterance queued in the same tick
+     as cancel(). Defer the actual speak by one short timeout. */
+  setTimeout(function(){
+    if(currentUtterance !== u) return;
+    try{ synth.speak(u); }catch(_){ finish(); }
+  }, 60);
+
+  var fallback = Math.max(2800, item.words.length * 220);
+  setTimeout(function(){
+    if(!done && !synth.speaking && !synth.pending) finish();
+  }, fallback);
 }
 
 /* =========================================================================
-   7. PLAYBACK ENGINE
+   7. PLAYBACK
    ========================================================================= */
 
-function clearAdvanceTimer() {
-  if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
+function clearAdvanceTimer(){
+  if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer = null; }
 }
 
-function playStep() {
+function playStep(){
   render();
-  speakCurrent(() => {
-    if (!state.playing) return;
+  speakCurrent(function(){
+    if(!state.playing) return;
     clearAdvanceTimer();
-    advanceTimer = setTimeout(() => {
-      if (!state.playing) return;
-
-      if (state.current >= state.rangeEnd) {
-        if (state.loop) {
-          state.current = state.rangeStart;
-          playStep();
-        } else {
-          pause();
-        }
+    advanceTimer = setTimeout(function(){
+      if(!state.playing) return;
+      if(state.current >= state.rangeEnd){
+        if(state.loop){ state.current = state.rangeStart; playStep(); }
+        else pause();
         return;
       }
       state.current++;
@@ -368,10 +438,9 @@ function playStep() {
   });
 }
 
-function play() {
-  if (state.playing) return;
-  // If we're sitting outside the range (after a manual jump), re-enter it
-  if (state.current < state.rangeStart || state.current > state.rangeEnd) {
+function play(){
+  if(state.playing) return;
+  if(state.current < state.rangeStart || state.current > state.rangeEnd){
     state.current = state.rangeStart;
   }
   state.playing = true;
@@ -379,177 +448,216 @@ function play() {
   playStep();
 }
 
-function pause() {
+function pause(){
+  if(!state.playing){ updatePlayPauseUI(); return; }
   state.playing = false;
   clearAdvanceTimer();
   stopSpeech();
   updatePlayPauseUI();
 }
 
-function togglePlay() { state.playing ? pause() : play(); }
+function togglePlay(){ state.playing ? pause() : play(); }
 
-/** Move to a number; keeps auto-play running if it was running. */
-function goTo(n, opts) {
-  const keepPlaying = !(opts && opts.stop) && state.playing;
+function goTo(n, opts){
+  var keepPlaying = !(opts && opts.stop) && state.playing;
   clearAdvanceTimer();
   stopSpeech();
 
   state.current = Math.min(ABS_MAX, Math.max(ABS_MIN, n));
 
-  if (keepPlaying) {
+  if(keepPlaying){
     playStep();
   } else {
-    if (state.playing) pause();
+    if(state.playing) pause();
     render();
     speakCurrent();
   }
 }
 
-function next() { goTo(state.current >= state.rangeEnd ? state.rangeStart : state.current + 1); }
-function prev() { goTo(state.current <= state.rangeStart ? state.rangeEnd : state.current - 1); }
-function restart() { goTo(state.rangeStart); }
+function next(){ goTo(state.current >= state.rangeEnd ? state.rangeStart : state.current + 1); }
+function prev(){ goTo(state.current <= state.rangeStart ? state.rangeEnd : state.current - 1); }
+function restart(){ goTo(state.rangeStart); }
 
-function repeat() {
+function repeat(){
   clearAdvanceTimer();
-  const wasPlaying = state.playing;
+  var wasPlaying = state.playing;
   stopSpeech();
-  wasPlaying ? playStep() : speakCurrent();
+  if(wasPlaying) playStep();
+  else speakCurrent();
 }
 
 /* =========================================================================
    8. MANUAL ENTRY
-   -------------------------------------------------------------------------
-   Type any number 0–9999 and hear it immediately.
-   Works for years and dates: 1987, 2026, 1445 ...
-   Auto-play pauses so the typed number stays on screen.
    ========================================================================= */
 
-function submitJump() {
-  const raw = (el.jumpInput.value || '').trim();
-  if (raw === '') return;
-
-  // Accept Arabic-Indic digits typed on an Arabic keyboard too
-  const normalised = raw.replace(/[٠-٩]/g, d => String(ARABIC_INDIC_DIGITS.indexOf(d)));
-  const n = parseInt(normalised, 10);
-
-  if (isNaN(n) || n < ABS_MIN || n > ABS_MAX) {
-    el.jumpInput.classList.add('is-invalid');
-    setTimeout(() => el.jumpInput.classList.remove('is-invalid'), 600);
-    return;
-  }
-
-  goTo(n, { stop: true }); // pause the sequence and hold on this number
-  el.jumpInput.blur();     // dismiss the mobile keyboard
+function flagInvalid(){
+  if(!el.jumpInput) return;
+  el.jumpInput.classList.add('is-invalid');
+  setTimeout(function(){ el.jumpInput.classList.remove('is-invalid'); }, 600);
 }
 
-/** Apply a new auto-play range and rebuild the clickable strip. */
-function applyRange() {
-  let s = parseInt(el.rangeStart.value, 10);
-  let e = parseInt(el.rangeEnd.value, 10);
+function flashOk(){
+  if(!el.jumpInput) return;
+  el.jumpInput.classList.add('is-ok');
+  setTimeout(function(){ el.jumpInput.classList.remove('is-ok'); }, 700);
+}
 
-  if (isNaN(s)) s = 1;
-  if (isNaN(e)) e = 100;
-  s = Math.min(ABS_MAX, Math.max(ABS_MIN, s));
-  e = Math.min(ABS_MAX, Math.max(ABS_MIN, e));
-  if (e < s) { const t = s; s = e; e = t; }
+function submitJump(){
+  if(!el.jumpInput) return;
 
-  // A huge strip would hurt performance — cap the clickable chips
-  if (e - s > 500) e = s + 500;
+  var clean = normaliseDigits(el.jumpInput.value).slice(0, 4);
+  if(clean === ''){ flagInvalid(); el.jumpInput.focus(); return; }
+
+  var n = parseInt(clean, 10);
+  if(isNaN(n) || n < ABS_MIN || n > ABS_MAX){ flagInvalid(); return; }
+
+  pause();
+  state.current = n;
+
+  // Widen the wheel range so the typed number is reachable on the drum
+  if(n < state.rangeStart || n > state.rangeEnd){
+    state.rangeStart = Math.max(ABS_MIN, n - 50);
+    state.rangeEnd   = Math.min(ABS_MAX, n + 50);
+    if(el.rangeStart) el.rangeStart.value = state.rangeStart;
+    if(el.rangeEnd)   el.rangeEnd.value = state.rangeEnd;
+    saveSettings();
+  }
+
+  render();
+  speakCurrent();
+  flashOk();
+  el.jumpInput.blur();
+}
+
+function applyRange(){
+  if(!el.rangeStart || !el.rangeEnd) return;
+
+  var s = parseInt(normaliseDigits(el.rangeStart.value), 10);
+  var e = parseInt(normaliseDigits(el.rangeEnd.value), 10);
+  if(isNaN(s)) s = 1;
+  if(isNaN(e)) e = 100;
+  s = Math.max(ABS_MIN, Math.min(ABS_MAX, s));
+  e = Math.max(ABS_MIN, Math.min(ABS_MAX, e));
+  if(e < s){ var t = s; s = e; e = t; }
 
   state.rangeStart = s;
   state.rangeEnd = e;
   el.rangeStart.value = s;
   el.rangeEnd.value = e;
 
-  if (state.current < s || state.current > e) state.current = s;
+  if(state.current < s || state.current > e) state.current = s;
 
-  buildStrip();
   render();
   saveSettings();
 }
 
 /* =========================================================================
-   9. CONTROLS / EVENTS
+   9. CONTROLS
    ========================================================================= */
 
-function updatePlayPauseUI() {
-  el.playPauseIcon.textContent = state.playing ? '❚❚' : '►';
-  el.playPauseBtn.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
-  el.playPauseBtn.setAttribute('aria-pressed', String(state.playing));
-  el.playPauseBtn.title = state.playing ? 'Pause' : 'Play';
+function updatePlayPauseUI(){
+  if(el.playPauseIcon) el.playPauseIcon.textContent = state.playing ? '❚❚' : '►';
+  if(el.playPauseBtn){
+    el.playPauseBtn.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+    el.playPauseBtn.setAttribute('aria-pressed', String(state.playing));
+  }
 }
 
-function updateMuteUI() {
-  el.muteIcon.textContent = (state.muted || state.volume === 0) ? '🔇' : '🔊';
-  el.muteBtn.setAttribute('aria-pressed', String(state.muted));
-  el.muteBtn.title = state.muted ? 'Unmute' : 'Mute';
+function updateMuteUI(){
+  if(el.muteIcon) el.muteIcon.textContent = (state.muted || state.volume === 0) ? '🔇' : '🔊';
+  if(el.muteBtn) el.muteBtn.setAttribute('aria-pressed', String(state.muted));
 }
 
-function toggleMute() {
+function toggleMute(){
   state.muted = !state.muted;
-  if (state.muted) stopSpeech();
+  if(state.muted) stopSpeech();
   updateMuteUI();
   saveSettings();
 }
 
-function applySpeedPreset(preset) {
-  switch (preset) {
-    case 'slow': state.rate = 0.65; state.gapMs = 1600; break;
-    case 'fast': state.rate = 1.05; state.gapMs = 350;  break;
-    default:     state.rate = 0.85; state.gapMs = 900;  break;
-  }
-  el.speed.value = preset;
+function applySpeedPreset(p){
+  if(p === 'slow'){ state.rate = 0.65; state.gapMs = 1600; }
+  else if(p === 'fast'){ state.rate = 1.05; state.gapMs = 350; }
+  else { p = 'normal'; state.rate = 0.85; state.gapMs = 900; }
+  if(el.speed) el.speed.value = p;
 }
 
-function bindControls() {
-  el.playPauseBtn.addEventListener('click', togglePlay);
-  el.nextBtn.addEventListener('click', next);
-  el.prevBtn.addEventListener('click', prev);
-  el.repeatBtn.addEventListener('click', repeat);
-  el.restartBtn.addEventListener('click', restart);
-  el.muteBtn.addEventListener('click', toggleMute);
+function bindControls(){
+  on(el.playPauseBtn, 'click', togglePlay);
+  on(el.nextBtn, 'click', next);
+  on(el.prevBtn, 'click', prev);
+  on(el.repeatBtn, 'click', repeat);
+  on(el.restartBtn, 'click', restart);
+  on(el.muteBtn, 'click', toggleMute);
 
-  // Manual entry
-  el.jumpForm.addEventListener('submit', (e) => { e.preventDefault(); submitJump(); });
-
-  // Range inputs
-  el.rangeStart.addEventListener('change', applyRange);
-  el.rangeEnd.addEventListener('change', applyRange);
-
-  // Clickable strip (event delegation — one listener for all chips)
-  el.strip.addEventListener('click', (e) => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    goTo(Number(chip.dataset.n), { stop: true });
+  /* ---- Manual entry: no form, explicit listeners only ---- */
+  on(el.sayBtn, 'pointerdown', function(e){
+    e.preventDefault();          // fires before the input loses focus
+    e.stopPropagation();
+    submitJump();
+  });
+  on(el.sayBtn, 'click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    // Fallback for browsers without pointer events
+    if(!window.PointerEvent) submitJump();
   });
 
-  el.volume.addEventListener('input', () => {
+  on(el.jumpInput, 'keydown', function(e){
+    e.stopPropagation();         // keep global shortcuts out of the field
+    if(e.key === 'Enter'){ e.preventDefault(); submitJump(); }
+  });
+
+  on(el.jumpInput, 'input', function(){
+    var raw = el.jumpInput.value;
+    var clean = normaliseDigits(raw).slice(0, 4);
+    if(raw !== clean) el.jumpInput.value = clean;
+  });
+
+  on(el.jumpInput, 'pointerdown', function(e){
+    e.stopPropagation();
+    setPanelOpen(true);
+    wakePanel();
+  });
+
+  on(el.jumpInput, 'focus', function(){
+    el.jumpInput.select();
+    wakePanel();
+  });
+
+  on(el.rangeStart, 'change', applyRange);
+  on(el.rangeEnd, 'change', applyRange);
+  on(el.rangeStart, 'keydown', function(e){ e.stopPropagation(); });
+  on(el.rangeEnd, 'keydown', function(e){ e.stopPropagation(); });
+
+  on(el.volume, 'input', function(){
     state.volume = Number(el.volume.value) / 100;
-    if (state.volume > 0) state.muted = false;
+    if(state.volume > 0) state.muted = false;
     updateMuteUI();
     saveSettings();
   });
 
-  el.speed.addEventListener('change', () => { applySpeedPreset(el.speed.value); saveSettings(); });
-  el.loopToggle.addEventListener('change', () => { state.loop = el.loopToggle.checked; saveSettings(); });
+  on(el.speed, 'change', function(){ applySpeedPreset(el.speed.value); saveSettings(); });
+  on(el.loopToggle, 'change', function(){ state.loop = el.loopToggle.checked; saveSettings(); });
+  on(el.card, 'click', repeat);
 
-  // Tap the card to hear it again
-  el.card.addEventListener('click', repeat);
+  document.addEventListener('keydown', function(e){
+    if(!state.started) return;
+    var tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+    if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (!state.started) return;
-    const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'select') return; // don't hijack typing
-
-    switch (e.key) {
+    switch(e.key){
       case ' ': e.preventDefault(); togglePlay(); break;
       case 'ArrowRight': next(); break;
       case 'ArrowLeft': prev(); break;
       case 'r': case 'R': repeat(); break;
       case 'm': case 'M': toggleMute(); break;
       case 'Home': restart(); break;
-      case '/': e.preventDefault(); setPanelOpen(true); el.jumpInput.focus(); break;
+      case '/':
+        e.preventDefault();
+        setPanelOpen(true);
+        if(el.jumpInput) el.jumpInput.focus();
+        break;
       default: return;
     }
     wakePanel();
@@ -557,36 +665,39 @@ function bindControls() {
 }
 
 /* =========================================================================
-   10. PANEL AUTO-HIDE
+   10. PANEL
    ========================================================================= */
 
-const IDLE_MS = 3500;
-let idleTimer = null;
-let panelOpen = true;
+var IDLE_MS = 3500;
+var idleTimer = null;
+var panelOpen = true;
 
-function setPanelOpen(open) {
+function setPanelOpen(open){
   panelOpen = open;
-  el.panel.classList.toggle('is-collapsed', !open);
-  el.panelHandle.setAttribute('aria-expanded', String(open));
-  el.panelHandle.setAttribute('aria-label', open ? 'Hide controls' : 'Show controls');
-  if (open) wakePanel();
+  if(el.panel) el.panel.classList.toggle('is-collapsed', !open);
+  if(el.panelHandle){
+    el.panelHandle.setAttribute('aria-expanded', String(open));
+    el.panelHandle.setAttribute('aria-label', open ? 'Hide controls' : 'Show controls');
+  }
+  if(open) wakePanel();
 }
 
-function wakePanel() {
+function wakePanel(){
+  if(!el.panel) return;
   el.panel.classList.remove('is-dimmed');
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    // Never dim while the user is typing a number
-    if (panelOpen && document.activeElement !== el.jumpInput) {
+  idleTimer = setTimeout(function(){
+    if(panelOpen && document.activeElement !== el.jumpInput){
       el.panel.classList.add('is-dimmed');
     }
   }, IDLE_MS);
 }
 
-function bindPanel() {
-  el.panelHandle.addEventListener('click', () => setPanelOpen(!panelOpen));
-  ['pointerenter','pointerdown','pointermove','focusin','input']
-    .forEach(evt => el.panel.addEventListener(evt, wakePanel));
+function bindPanel(){
+  on(el.panelHandle, 'click', function(){ setPanelOpen(!panelOpen); });
+  ['pointerenter','pointerdown','pointermove','focusin','input'].forEach(function(ev){
+    on(el.panel, ev, wakePanel);
+  });
   document.addEventListener('pointerdown', wakePanel);
 }
 
@@ -594,96 +705,124 @@ function bindPanel() {
    11. THEME + SETTINGS
    ========================================================================= */
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  el.themeBtn.textContent = theme === 'dark' ? '☀' : '☾';
-  el.themeBtn.title = theme === 'dark' ? 'Light mode' : 'Dark mode';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  if(el.themeBtn) el.themeBtn.textContent = t === 'dark' ? '☀' : '☾';
 }
 
-function bindTheme() {
-  const saved = localStorage.getItem('arabicNumbers.theme');
-  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+function bindTheme(){
+  var saved = null;
+  try{ saved = localStorage.getItem('arabicNumbers.theme'); }catch(_){}
+  var prefersLight = window.matchMedia &&
+                     window.matchMedia('(prefers-color-scheme: light)').matches;
   applyTheme(saved || (prefersLight ? 'light' : 'dark'));
 
-  el.themeBtn.addEventListener('click', () => {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    const nextTheme = cur === 'dark' ? 'light' : 'dark';
-    applyTheme(nextTheme);
-    localStorage.setItem('arabicNumbers.theme', nextTheme);
+  on(el.themeBtn, 'click', function(){
+    var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    var nt = cur === 'dark' ? 'light' : 'dark';
+    applyTheme(nt);
+    try{ localStorage.setItem('arabicNumbers.theme', nt); }catch(_){}
   });
 }
 
-function saveSettings() {
-  try {
+function saveSettings(){
+  try{
     localStorage.setItem('arabicNumbers.settings', JSON.stringify({
-      volume: state.volume, muted: state.muted, speed: el.speed.value,
+      volume: state.volume, muted: state.muted,
+      speed: el.speed ? el.speed.value : 'normal',
       loop: state.loop, rangeStart: state.rangeStart, rangeEnd: state.rangeEnd
     }));
-  } catch (_) { /* storage blocked — not critical */ }
+  }catch(_){}
 }
 
-function loadSettings() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('arabicNumbers.settings') || '{}'); }
-  catch (_) { saved = {}; }
+function loadSettings(){
+  var s = {};
+  try{ s = JSON.parse(localStorage.getItem('arabicNumbers.settings') || '{}') || {}; }
+  catch(_){ s = {}; }
 
-  state.volume = typeof saved.volume === 'number' ? saved.volume : 1;
-  state.muted = !!saved.muted;
-  state.loop = saved.loop !== false;
-  state.rangeStart = typeof saved.rangeStart === 'number' ? saved.rangeStart : 1;
-  state.rangeEnd = typeof saved.rangeEnd === 'number' ? saved.rangeEnd : 100;
+  state.volume = typeof s.volume === 'number' ? s.volume : 1;
+  state.muted = !!s.muted;
+  state.loop = s.loop !== false;
+  state.rangeStart = typeof s.rangeStart === 'number' ? s.rangeStart : 1;
+  state.rangeEnd = typeof s.rangeEnd === 'number' ? s.rangeEnd : 100;
   state.current = state.rangeStart;
 
-  el.volume.value = Math.round(state.volume * 100);
-  el.loopToggle.checked = state.loop;
-  el.rangeStart.value = state.rangeStart;
-  el.rangeEnd.value = state.rangeEnd;
-  applySpeedPreset(saved.speed || 'normal');
+  if(el.volume) el.volume.value = Math.round(state.volume * 100);
+  if(el.loopToggle) el.loopToggle.checked = state.loop;
+  if(el.rangeStart) el.rangeStart.value = state.rangeStart;
+  if(el.rangeEnd) el.rangeEnd.value = state.rangeEnd;
+  applySpeedPreset(s.speed || 'normal');
   updateMuteUI();
 }
 
 /* =========================================================================
    12. INIT
+   -------------------------------------------------------------------------
+   The Start button is wired FIRST and in its own try/catch, so the app can
+   always be started even if a later step fails.
    ========================================================================= */
 
-function init() {
-  loadSettings();
-  buildStrip();
-  bindControls();
-  bindPanel();
-  bindTheme();
-  updatePlayPauseUI();
-  render();
+function startSession(){
+  state.started = true;
+  if(el.startOverlay) el.startOverlay.classList.add('is-hidden');
 
-  if (speechSupported) {
-    loadVoices();
-    synth.addEventListener('voiceschanged', loadVoices);
-    setTimeout(loadVoices, 600);
-    setTimeout(loadVoices, 1800);
-  } else {
-    updateVoiceNote();
-  }
-
-  // One gesture unlocks audio for the whole session
-  el.startBtn.addEventListener('click', () => {
-    state.started = true;
-    el.startOverlay.classList.add('is-hidden');
-
-    if (speechSupported) {
-      const warm = new SpeechSynthesisUtterance(' ');
+  // Warm up the speech engine inside the user gesture (required by iOS)
+  if(speechSupported){
+    try{
+      var warm = new SpeechSynthesisUtterance(' ');
       warm.volume = 0;
       synth.speak(warm);
-      if (!state.voice) loadVoices();
-    }
+    }catch(_){}
+    if(!state.voice) loadVoices();
+  }
 
-    state.current = state.rangeStart;
-    play();
-    setPanelOpen(true);
+  state.current = state.rangeStart;
+  play();
+  setPanelOpen(true);
+}
+
+function init(){
+  collectDom();
+
+  // --- 1. Start button FIRST, so nothing can block it ---
+  if(el.startBtn){
+    el.startBtn.addEventListener('click', function(){
+      safe('startSession', startSession);
+    });
+  } else {
+    console.error('[ArabicNumbers] start-btn missing — index.html is out of date.');
+  }
+
+  // --- 2. Everything else, each isolated ---
+  safe('loadSettings',  loadSettings);
+  safe('buildWheel',    buildWheelPool);
+  safe('bindWheel',     bindWheel);
+  safe('bindControls',  bindControls);
+  safe('bindPanel',     bindPanel);
+  safe('bindTheme',     bindTheme);
+  safe('updatePlayUI',  updatePlayPauseUI);
+  safe('render',        render);
+
+  safe('voices', function(){
+    loadVoices();
+    if(speechSupported && synth.addEventListener){
+      synth.addEventListener('voiceschanged', loadVoices);
+    }
+    setTimeout(loadVoices, 600);
+    setTimeout(loadVoices, 1800);
   });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && state.playing) pause();
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden && state.playing) pause();
+  });
+
+  window.addEventListener('resize', function(){
+    safe('resize', function(){ renderWheel(state.current); });
   });
 }
 
-document.addEventListener('DOMContentLoaded', init);
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();   // script loaded after DOM was already parsed
+}
