@@ -1,19 +1,42 @@
 /* =========================================================================
-   Arabic Numbers Learning App — script.js (v4)
+   Arabic Numbers Learning App — script.js (v5)
    -------------------------------------------------------------------------
-   v4 fixes:
-     • init() is now fully defensive: every step runs in isolation, so a
-       missing element can NEVER prevent the Start button from working.
-     • Start button is bound FIRST, before anything else can fail.
-     • Manual entry uses no <form> at all.
-     • speak() is deferred one tick after cancel() (Chrome/Safari drop
-       utterances queued in the same tick as a cancel).
+   Plain ES5-style JavaScript. No frameworks, no build step, no backend.
+
+   v5 changes
+     • Panel markup split into a pinned header + scrollable body, so the
+       "Go to" field can no longer scroll out of view.
+     • Clear focus feedback is driven by CSS; JS only adds is-ok / is-invalid.
+     • Defensive init retained: every startup step is isolated so one
+       failure can never stop the Start button from working.
+
+   Sections
+     1.  Arabic number engine (0–9999)
+     2.  State
+     3.  DOM helpers
+     4.  Rotating drum wheel
+     5.  Rendering
+     6.  Speech synthesis
+     7.  Playback engine
+     8.  Manual entry
+     9.  Controls
+    10.  Panel
+    11.  Theme + settings
+    12.  Init
    ========================================================================= */
 
 'use strict';
 
 /* =========================================================================
    1. ARABIC NUMBER ENGINE (0–9999)
+   -------------------------------------------------------------------------
+   Modern Standard Arabic, masculine counting form.
+   Grammar handled:
+     • 11–19 irregular                -> أحد عشر
+     • compounds are unit-first       -> 25 = خمسة وعشرون
+     • fused hundreds                 -> 300 = ثلاثمئة
+     • dual for 200 / 2000            -> مئتان / ألفان
+     • plural "آلاف" for 3000–10000   -> 5000 = خمسة آلاف
    ========================================================================= */
 
 var UNITS = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة'];
@@ -104,7 +127,7 @@ var advanceTimer = null;
 var currentUtterance = null;
 
 /* =========================================================================
-   3. DOM
+   3. DOM HELPERS
    ========================================================================= */
 
 function $(id){ return document.getElementById(id); }
@@ -112,56 +135,61 @@ function $(id){ return document.getElementById(id); }
 var el = {};
 
 function collectDom(){
-  el.startOverlay = $('start-overlay');
-  el.startBtn     = $('start-btn');
-  el.card         = $('card');
-  el.western      = $('western');
-  el.indic        = $('indic');
-  el.words        = $('words');
-  el.wheel        = $('wheel');
-  el.wheelTrack   = $('wheel-track');
-  el.progressBar  = $('progress-bar');
-  el.progressLabel= $('progress-label');
-  el.panel        = $('panel');
-  el.panelHandle  = $('panel-handle');
-  el.playPauseBtn = $('btn-playpause');
-  el.playPauseIcon= $('icon-playpause');
-  el.prevBtn      = $('btn-prev');
-  el.nextBtn      = $('btn-next');
-  el.repeatBtn    = $('btn-repeat');
-  el.restartBtn   = $('btn-restart');
-  el.muteBtn      = $('btn-mute');
-  el.muteIcon     = $('icon-mute');
-  el.themeBtn     = $('btn-theme');
-  el.jumpInput    = $('jump-input');
-  el.sayBtn       = $('btn-say');
-  el.rangeStart   = $('range-start');
-  el.rangeEnd     = $('range-end');
-  el.volume       = $('volume');
-  el.speed        = $('speed');
-  el.loopToggle   = $('loop-toggle');
-  el.voiceNote    = $('voice-note');
-  el.live         = $('live-region');
+  el.startOverlay  = $('start-overlay');
+  el.startBtn      = $('start-btn');
+  el.card          = $('card');
+  el.western       = $('western');
+  el.indic         = $('indic');
+  el.words         = $('words');
+  el.wheel         = $('wheel');
+  el.wheelTrack    = $('wheel-track');
+  el.progressBar   = $('progress-bar');
+  el.progressLabel = $('progress-label');
+  el.panel         = $('panel');
+  el.panelHandle   = $('panel-handle');
+  el.playPauseBtn  = $('btn-playpause');
+  el.playPauseIcon = $('icon-playpause');
+  el.prevBtn       = $('btn-prev');
+  el.nextBtn       = $('btn-next');
+  el.repeatBtn     = $('btn-repeat');
+  el.restartBtn    = $('btn-restart');
+  el.muteBtn       = $('btn-mute');
+  el.muteIcon      = $('icon-mute');
+  el.themeBtn      = $('btn-theme');
+  el.jumpInput     = $('jump-input');
+  el.sayBtn        = $('btn-say');
+  el.rangeStart    = $('range-start');
+  el.rangeEnd      = $('range-end');
+  el.volume        = $('volume');
+  el.speed         = $('speed');
+  el.loopToggle    = $('loop-toggle');
+  el.voiceNote     = $('voice-note');
+  el.live          = $('live-region');
 }
 
-/** Run a step without letting its failure break the rest of startup. */
+/** Run a startup step in isolation so its failure cannot break the rest. */
 function safe(label, fn){
   try{ fn(); }
   catch(err){ console.error('[ArabicNumbers] ' + label + ' failed:', err); }
 }
 
-/** Attach a listener only if the element exists. */
+/** Attach a listener only when the element actually exists. */
 function on(node, evt, handler, opts){
   if(node && node.addEventListener) node.addEventListener(evt, handler, opts);
 }
 
 /* =========================================================================
    4. ROTATING DRUM WHEEL
+   -------------------------------------------------------------------------
+   Ticks are absolutely positioned at x = (value - centre) * TICK_W and
+   rotated around the Y axis in proportion to that offset, so the row reads
+   as the curved surface of a spinning drum. Only a small window of ticks
+   exists in the DOM and the nodes are reused on every frame.
    ========================================================================= */
 
-var TICK_W = 58;     // spacing between ticks, px
-var WINDOW = 11;     // ticks drawn on each side of centre
-var MAX_ROT = 62;    // rotation at the far edge, degrees
+var TICK_W = 58;    // spacing between ticks, px
+var WINDOW = 11;    // ticks drawn on each side of centre
+var MAX_ROT = 62;   // rotation at the far edge, degrees
 
 var tickPool = [];
 var wheelCentre = 1;
@@ -212,7 +240,7 @@ function renderWheel(centre){
       ' rotateY(' + rotY + 'deg)' +
       ' scale(' + scale + ')';
 
-    // Fade + darken with distance, so the centre reads as the lit face
+    // Fade + darken with distance so the centre reads as the lit face
     node.style.opacity = String(1 - Math.abs(norm) * 0.55);
     node.style.filter = 'brightness(' + (1 - Math.abs(norm) * 0.5).toFixed(3) + ')';
 
@@ -248,10 +276,11 @@ function bindWheel(){
 
     var now = performance.now(), dt = now - lastT;
     if(dt > 0){
-      velocity = (e.clientX - lastX) / dt;
+      velocity = (e.clientX - lastX) / dt;   // px per ms
       lastX = e.clientX; lastT = now;
     }
 
+    // Dragging right goes to LOWER numbers, like a physical dial
     var centre = startValue - dx / TICK_W;
     centre = Math.max(state.rangeStart, Math.min(state.rangeEnd, centre));
 
@@ -265,6 +294,7 @@ function bindWheel(){
     dragging = false;
     el.wheel.classList.remove('is-dragging');
 
+    // A flick carries the wheel a little further
     var target = wheelCentre;
     if(Math.abs(velocity) > 0.35) target -= velocity * 9;
     target = Math.max(state.rangeStart, Math.min(state.rangeEnd, Math.round(target)));
@@ -272,7 +302,7 @@ function bindWheel(){
     if(el.wheelTrack) el.wheelTrack.classList.add('is-animating');
 
     if(moved) goTo(target, { stop:true });
-    else repeat();
+    else repeat();          // a tap without movement repeats the number
   }
 
   on(el.wheel, 'pointerup', endDrag);
@@ -315,7 +345,7 @@ function render(){
   renderCard();
   if(el.card){
     el.card.classList.remove('is-entering');
-    void el.card.offsetWidth;
+    void el.card.offsetWidth;          // force reflow so the animation replays
     el.card.classList.add('is-entering');
   }
   if(el.wheelTrack) el.wheelTrack.classList.add('is-animating');
@@ -323,12 +353,13 @@ function render(){
 }
 
 /* =========================================================================
-   6. SPEECH
+   6. SPEECH SYNTHESIS
    ========================================================================= */
 
 var synth = window.speechSynthesis;
 var speechSupported = typeof synth !== 'undefined' && 'SpeechSynthesisUtterance' in window;
 
+/** Preference: ar-QA > ar-SA > other Gulf > any Arabic voice. */
 function pickArabicVoice(){
   if(!speechSupported) return null;
   var voices = synth.getVoices();
@@ -356,7 +387,7 @@ function pickArabicVoice(){
 function loadVoices(){
   state.voice = pickArabicVoice();
   if(el.voiceNote){
-    el.voiceNote.textContent = !speechSupported ? 'No speech support'
+    el.voiceNote.textContent = !speechSupported ? 'No speech'
       : (state.voice ? state.voice.lang : 'No Arabic voice');
   }
 }
@@ -373,7 +404,7 @@ function stopSpeech(){
 
 function speakCurrent(onDone){
   var item = makeItem(state.current);
-  stopSpeech();
+  stopSpeech();                       // never let utterances overlap
 
   if(!speechSupported || state.muted || state.volume === 0){
     if(onDone) onDone();
@@ -395,17 +426,18 @@ function speakCurrent(onDone){
     if(onDone) onDone();
   }
   u.onend = finish;
-  u.onerror = finish;
+  u.onerror = finish;                 // an error must never freeze the loop
 
   currentUtterance = u;
 
   /* Chrome and Safari silently DROP an utterance queued in the same tick
-     as cancel(). Defer the actual speak by one short timeout. */
+     as cancel(). Defer the real speak() by one short timeout. */
   setTimeout(function(){
-    if(currentUtterance !== u) return;
+    if(currentUtterance !== u) return;   // superseded while waiting
     try{ synth.speak(u); }catch(_){ finish(); }
   }, 60);
 
+  // Safety net for mobile browsers that never fire "onend"
   var fallback = Math.max(2800, item.words.length * 220);
   setTimeout(function(){
     if(!done && !synth.speaking && !synth.pending) finish();
@@ -413,7 +445,7 @@ function speakCurrent(onDone){
 }
 
 /* =========================================================================
-   7. PLAYBACK
+   7. PLAYBACK ENGINE
    ========================================================================= */
 
 function clearAdvanceTimer(){
@@ -488,18 +520,23 @@ function repeat(){
 
 /* =========================================================================
    8. MANUAL ENTRY
+   -------------------------------------------------------------------------
+   Type any number 0–9999 (years, birth dates, surgery dates) and hear it.
+   Visual state is handled by CSS :focus; JS only flags success/failure.
    ========================================================================= */
 
 function flagInvalid(){
   if(!el.jumpInput) return;
+  el.jumpInput.classList.remove('is-ok');
   el.jumpInput.classList.add('is-invalid');
-  setTimeout(function(){ el.jumpInput.classList.remove('is-invalid'); }, 600);
+  setTimeout(function(){ el.jumpInput.classList.remove('is-invalid'); }, 700);
 }
 
 function flashOk(){
   if(!el.jumpInput) return;
+  el.jumpInput.classList.remove('is-invalid');
   el.jumpInput.classList.add('is-ok');
-  setTimeout(function(){ el.jumpInput.classList.remove('is-ok'); }, 700);
+  setTimeout(function(){ el.jumpInput.classList.remove('is-ok'); }, 800);
 }
 
 function submitJump(){
@@ -511,7 +548,7 @@ function submitJump(){
   var n = parseInt(clean, 10);
   if(isNaN(n) || n < ABS_MIN || n > ABS_MAX){ flagInvalid(); return; }
 
-  pause();
+  pause();                     // hold on the typed number
   state.current = n;
 
   // Widen the wheel range so the typed number is reachable on the drum
@@ -526,7 +563,6 @@ function submitJump(){
   render();
   speakCurrent();
   flashOk();
-  el.jumpInput.blur();
 }
 
 function applyRange(){
@@ -590,21 +626,24 @@ function bindControls(){
   on(el.restartBtn, 'click', restart);
   on(el.muteBtn, 'click', toggleMute);
 
-  /* ---- Manual entry: no form, explicit listeners only ---- */
+  /* ---------------- Manual entry ----------------
+     No <form> element: a form without an action behaves inconsistently
+     across mobile browsers. Every route is bound explicitly. */
+
+  // pointerdown fires BEFORE the input loses focus — essential on touch
   on(el.sayBtn, 'pointerdown', function(e){
-    e.preventDefault();          // fires before the input loses focus
+    e.preventDefault();
     e.stopPropagation();
     submitJump();
   });
   on(el.sayBtn, 'click', function(e){
     e.preventDefault();
     e.stopPropagation();
-    // Fallback for browsers without pointer events
-    if(!window.PointerEvent) submitJump();
+    if(!window.PointerEvent) submitJump();   // fallback for old browsers
   });
 
   on(el.jumpInput, 'keydown', function(e){
-    e.stopPropagation();         // keep global shortcuts out of the field
+    e.stopPropagation();          // keep global shortcuts out of the field
     if(e.key === 'Enter'){ e.preventDefault(); submitJump(); }
   });
 
@@ -621,7 +660,7 @@ function bindControls(){
   });
 
   on(el.jumpInput, 'focus', function(){
-    el.jumpInput.select();
+    el.jumpInput.select();        // typing replaces the previous value
     wakePanel();
   });
 
@@ -687,6 +726,7 @@ function wakePanel(){
   el.panel.classList.remove('is-dimmed');
   clearTimeout(idleTimer);
   idleTimer = setTimeout(function(){
+    // Never dim while the user is typing a number
     if(panelOpen && document.activeElement !== el.jumpInput){
       el.panel.classList.add('is-dimmed');
     }
@@ -728,9 +768,12 @@ function bindTheme(){
 function saveSettings(){
   try{
     localStorage.setItem('arabicNumbers.settings', JSON.stringify({
-      volume: state.volume, muted: state.muted,
+      volume: state.volume,
+      muted: state.muted,
       speed: el.speed ? el.speed.value : 'normal',
-      loop: state.loop, rangeStart: state.rangeStart, rangeEnd: state.rangeEnd
+      loop: state.loop,
+      rangeStart: state.rangeStart,
+      rangeEnd: state.rangeEnd
     }));
   }catch(_){}
 }
@@ -740,17 +783,17 @@ function loadSettings(){
   try{ s = JSON.parse(localStorage.getItem('arabicNumbers.settings') || '{}') || {}; }
   catch(_){ s = {}; }
 
-  state.volume = typeof s.volume === 'number' ? s.volume : 1;
-  state.muted = !!s.muted;
-  state.loop = s.loop !== false;
+  state.volume     = typeof s.volume === 'number' ? s.volume : 1;
+  state.muted      = !!s.muted;
+  state.loop       = s.loop !== false;
   state.rangeStart = typeof s.rangeStart === 'number' ? s.rangeStart : 1;
-  state.rangeEnd = typeof s.rangeEnd === 'number' ? s.rangeEnd : 100;
-  state.current = state.rangeStart;
+  state.rangeEnd   = typeof s.rangeEnd === 'number' ? s.rangeEnd : 100;
+  state.current    = state.rangeStart;
 
-  if(el.volume) el.volume.value = Math.round(state.volume * 100);
+  if(el.volume)     el.volume.value = Math.round(state.volume * 100);
   if(el.loopToggle) el.loopToggle.checked = state.loop;
   if(el.rangeStart) el.rangeStart.value = state.rangeStart;
-  if(el.rangeEnd) el.rangeEnd.value = state.rangeEnd;
+  if(el.rangeEnd)   el.rangeEnd.value = state.rangeEnd;
   applySpeedPreset(s.speed || 'normal');
   updateMuteUI();
 }
@@ -794,14 +837,14 @@ function init(){
   }
 
   // --- 2. Everything else, each isolated ---
-  safe('loadSettings',  loadSettings);
-  safe('buildWheel',    buildWheelPool);
-  safe('bindWheel',     bindWheel);
-  safe('bindControls',  bindControls);
-  safe('bindPanel',     bindPanel);
-  safe('bindTheme',     bindTheme);
-  safe('updatePlayUI',  updatePlayPauseUI);
-  safe('render',        render);
+  safe('loadSettings', loadSettings);
+  safe('buildWheel',   buildWheelPool);
+  safe('bindWheel',    bindWheel);
+  safe('bindControls', bindControls);
+  safe('bindPanel',    bindPanel);
+  safe('bindTheme',    bindTheme);
+  safe('updatePlayUI', updatePlayPauseUI);
+  safe('render',       render);
 
   safe('voices', function(){
     loadVoices();
@@ -824,5 +867,5 @@ function init(){
 if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', init);
 } else {
-  init();   // script loaded after DOM was already parsed
+  init();   // script loaded after the DOM was already parsed
 }
