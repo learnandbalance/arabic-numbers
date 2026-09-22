@@ -16,14 +16,14 @@
 </head>
 <body>
 
-<!-- ===================== START OVERLAY (v4) ===================== -->
+<!-- ===================== START OVERLAY ===================== -->
 <div class="overlay" id="start-overlay">
   <div class="overlay__inner">
     <p class="overlay__arabic" lang="ar" dir="rtl">٠ – ٩٩٩٩</p>
     <h1 class="overlay__title">Arabic Numbers</h1>
     <p class="overlay__subtitle">See it. Hear it. Remember it.</p>
     <button class="overlay__btn" id="start-btn" type="button">Start Learning</button>
-    <p class="overlay__ver">v4 &middot; wheel edition</p>
+    <p class="overlay__ver">v5</p>
   </div>
 </div>
 
@@ -40,8 +40,7 @@
        aria-label="Number wheel. Drag or use arrow keys."
        aria-valuemin="0" aria-valuemax="9999" aria-valuenow="1">
     <div class="wheel__track" id="wheel-track"></div>
-    <div class="wheel__fade wheel__fade--l" aria-hidden="true"></div>
-    <div class="wheel__fade wheel__fade--r" aria-hidden="true"></div>
+    <div class="wheel__shade" aria-hidden="true"></div>
     <div class="wheel__marker" aria-hidden="true"></div>
   </div>
 
@@ -62,61 +61,64 @@
 <!-- ===================== CONTROL PANEL ===================== -->
 <aside class="panel" id="panel" aria-label="Controls">
 
-  <!-- Manual entry: plain div, NOT a form -->
-  <div class="panel__group" id="jump-group">
+  <!-- Go to: pinned, never scrolls out of view -->
+  <div class="panel__pin" id="jump-group">
     <label class="panel__label" for="jump-input">Go to</label>
     <input class="jump" id="jump-input" type="text" inputmode="numeric"
            autocomplete="off" autocorrect="off" spellcheck="false"
            maxlength="4" placeholder="1987"
            aria-label="Type a number from 0 to 9999">
-    <button class="btn btn--wide" id="btn-say" type="button">Say</button>
+    <button class="btn btn--say" id="btn-say" type="button">Say</button>
   </div>
 
-  <div class="panel__group">
-    <button class="btn btn--main" id="btn-playpause" type="button" aria-label="Play" aria-pressed="false">
-      <span id="icon-playpause" aria-hidden="true">&#9658;</span>
-    </button>
-  </div>
+  <!-- Everything below scrolls if the screen is short -->
+  <div class="panel__scroll">
 
-  <div class="panel__group">
-    <button class="btn" id="btn-prev" type="button" aria-label="Previous" title="Previous"><span aria-hidden="true">&#9668;&#9668;</span></button>
-    <button class="btn" id="btn-next" type="button" aria-label="Next" title="Next"><span aria-hidden="true">&#9658;&#9658;</span></button>
-    <button class="btn" id="btn-repeat" type="button" aria-label="Repeat" title="Repeat"><span aria-hidden="true">&#8635;</span></button>
-    <button class="btn" id="btn-restart" type="button" aria-label="Restart" title="Restart"><span aria-hidden="true">|&#9668;</span></button>
-  </div>
+    <div class="panel__group">
+      <button class="btn btn--main" id="btn-playpause" type="button" aria-label="Play" aria-pressed="false">
+        <span id="icon-playpause" aria-hidden="true">&#9658;</span>
+      </button>
+    </div>
 
-  <div class="panel__group">
-    <label class="panel__label" for="range-start">Range</label>
-    <input class="range-box" id="range-start" type="text" inputmode="numeric" autocomplete="off" value="1" aria-label="Range start">
-    <input class="range-box" id="range-end" type="text" inputmode="numeric" autocomplete="off" value="100" aria-label="Range end">
-  </div>
+    <div class="panel__group panel__group--grid">
+      <button class="btn" id="btn-prev" type="button" aria-label="Previous" title="Previous"><span aria-hidden="true">&#9668;</span></button>
+      <button class="btn" id="btn-next" type="button" aria-label="Next" title="Next"><span aria-hidden="true">&#9658;</span></button>
+      <button class="btn" id="btn-repeat" type="button" aria-label="Repeat" title="Repeat"><span aria-hidden="true">&#8635;</span></button>
+      <button class="btn" id="btn-restart" type="button" aria-label="Restart" title="Restart"><span aria-hidden="true">&#8676;</span></button>
+    </div>
 
-  <div class="panel__group">
-    <button class="btn" id="btn-mute" type="button" aria-label="Mute" aria-pressed="false">
-      <span id="icon-mute" aria-hidden="true">&#128266;</span>
-    </button>
-    <label class="panel__label" for="volume">Vol</label>
-    <input class="slider" id="volume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume">
-  </div>
+    <div class="panel__group">
+      <label class="panel__label" for="range-start">Range</label>
+      <input class="range-box" id="range-start" type="text" inputmode="numeric" autocomplete="off" value="1" aria-label="Range start">
+      <input class="range-box" id="range-end" type="text" inputmode="numeric" autocomplete="off" value="100" aria-label="Range end">
+    </div>
 
-  <div class="panel__group">
-    <label class="panel__label" for="speed">Speed</label>
-    <select class="select" id="speed" aria-label="Speed">
-      <option value="slow">Slow</option>
-      <option value="normal" selected>Normal</option>
-      <option value="fast">Fast</option>
-    </select>
-  </div>
+    <div class="panel__group">
+      <button class="btn" id="btn-mute" type="button" aria-label="Mute" aria-pressed="false">
+        <span id="icon-mute" aria-hidden="true">&#128266;</span>
+      </button>
+      <input class="slider" id="volume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume">
+    </div>
 
-  <div class="panel__group">
-    <label class="toggle">
-      <input type="checkbox" id="loop-toggle" checked>
-      <span class="toggle__text">Loop</span>
-    </label>
-    <button class="btn" id="btn-theme" type="button" aria-label="Toggle theme" title="Theme">&#9728;</button>
-  </div>
+    <div class="panel__group">
+      <label class="panel__label" for="speed">Speed</label>
+      <select class="select" id="speed" aria-label="Speed">
+        <option value="slow">Slow</option>
+        <option value="normal" selected>Normal</option>
+        <option value="fast">Fast</option>
+      </select>
+    </div>
 
-  <p class="panel__note" id="voice-note">&hellip;</p>
+    <div class="panel__group">
+      <label class="toggle">
+        <input type="checkbox" id="loop-toggle" checked>
+        <span class="toggle__text">Loop</span>
+      </label>
+      <button class="btn" id="btn-theme" type="button" aria-label="Toggle theme" title="Theme">&#9728;</button>
+    </div>
+
+    <p class="panel__note" id="voice-note">&hellip;</p>
+  </div>
 </aside>
 
 <script src="script.js"></script>
